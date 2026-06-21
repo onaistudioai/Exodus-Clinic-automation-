@@ -1,0 +1,23 @@
+{
+  "wave": 4,
+  "part_7_ui_estoque": {
+    "status": "done",
+    "outputs": [
+      "src/app/(painel)/estoque/page.tsx",
+      "src/app/(painel)/estoque/GerenciarEstoque.tsx",
+      "src/app/(painel)/estoque/[produtoId]/page.tsx",
+      "src/app/(painel)/estoque/[produtoId]/AjusteLote.tsx",
+      "src/app/(painel)/estoque/relatorio/page.tsx",
+      "src/app/(painel)/layout.tsx (nav)"
+    ]
+  },
+  "part_8_ui_bom": {
+    "status": "done",
+    "outputs": ["src/app/(painel)/estoque/bom/page.tsx", "src/app/(painel)/estoque/bom/ConfigBom.tsx"]
+  },
+  "gate_w4": {
+    "tsc": "green",
+    "next_build": "green",
+    "eslint": "pre-existing-config-bug (eslintrc x flat) — falha na carga, não no meu código"
+  }
+}

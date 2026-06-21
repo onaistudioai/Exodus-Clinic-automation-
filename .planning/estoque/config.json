@@ -1,0 +1,30 @@
+{
+  "project": "modulo-estoque-aios-painel",
+  "created": "2026-06-21",
+  "phase": "1-architectus-done",
+  "spec": ".planning/estoque/PROJECT_SPEC.md",
+  "plan": ".planning/estoque/PLANO_EXECUTIVO.md",
+  "branch": "feat/estoque",
+  "execution_mode": "inline-orchestrator",
+  "decisions": {
+    "interface": "painel",
+    "scope_v1": "nucleo+baixa-automatica-por-procedimento",
+    "client": "roadmap-demo-sem-cliente",
+    "c3_estoque_insuficiente": "nunca-aborta-atendimento-baixa-parcial-saldo-negativo-sinalizado",
+    "bom_key": "tipo_atendimento"
+  },
+  "waves": {
+    "1": ["ddl-migration", "tipos-rbac"],
+    "2": ["dal-nucleo", "dal-baixa-bom"],
+    "3": ["actions-estoque", "hook-baixa-prontuario"],
+    "4": ["ui-estoque", "ui-bom"]
+  },
+  "stack": {
+    "framework": "next@16.2.x",
+    "ui": "react@19.2.x + tailwind@4",
+    "db": "postgres-railway",
+    "db_role": "app_painel",
+    "data_access": "withTenant + DAL repo",
+    "migrations_runner": "sofia-demo/sql/_run-sql.mjs"
+  }
+}

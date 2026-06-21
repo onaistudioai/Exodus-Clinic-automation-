@@ -1,0 +1,21 @@
+{
+  "wave": 1,
+  "part_1_ddl": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": [".planning/estoque/sql/001-estoque.sql"],
+    "note": "SQL escrito; aplicação no banco de produção PENDENTE de aprovação do usuário"
+  },
+  "part_2_tipos_rbac": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": ["src/types/domain.ts", "src/lib/rbac.ts"],
+    "tsc": "green"
+  },
+  "gate_w1": {
+    "tsc": "green",
+    "migration_applied": false,
+    "rls_proven": false,
+    "blocker": "aplicar DDL em produção requer aprovação do usuário"
+  }
+}
