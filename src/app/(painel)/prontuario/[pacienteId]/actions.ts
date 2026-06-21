@@ -101,14 +101,31 @@ export async function registrarAtendimento(
       if (!corrigeEntradaId) {
         await tx.query("SAVEPOINT estoque_baixa");
         try {
-          await estoque.baixarPorAtendimento(tx, {
+          const r = await estoque.baixarPorAtendimento(tx, {
             tipoAtendimento: tipo,
             agendamentoId,
             entradaId: id,
             usuarioId: session.usuario_id,
           });
-        } catch {
+          // A1: divergência (estoque insuficiente, C3) não é erro, mas precisa ser
+          // observável — senão saldo negativo acumula sem ninguém ver (ver M5).
+          if (r.itens_com_divergencia > 0) {
+            console.warn(
+              `[estoque] baixa com divergência: entrada=${id} tipo=${tipo} ` +
+                `clinica=${session.clinica_id} itens_divergencia=${r.itens_com_divergencia}`
+            );
+          }
+        } catch (e) {
+          // A1: a baixa NUNCA reverte o atendimento (política C3/C4) — por isso o
+          // ROLLBACK TO SAVEPOINT. Mas o erro NÃO pode ser silencioso: sem este log,
+          // uma falha sistemática (migração ausente, bug, lock) deixaria o estoque
+          // parado sem nenhum sinal. O atendimento finaliza; o estoque fica alertado.
           await tx.query("ROLLBACK TO SAVEPOINT estoque_baixa");
+          console.error(
+            `[estoque] FALHA na baixa automática (atendimento finalizado mesmo assim): ` +
+              `entrada=${id} paciente=${pacienteId} tipo=${tipo} clinica=${session.clinica_id}: ` +
+              (e instanceof Error ? e.message : String(e))
+          );
         }
       }
       return id;
