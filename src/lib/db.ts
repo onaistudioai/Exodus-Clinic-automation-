@@ -28,6 +28,15 @@ function makePool(): Pool {
     ssl: process.env.PGSSL_DISABLE === "1" ? undefined : { rejectUnauthorized: false },
     max: 10,
     idleTimeoutMillis: 30_000,
+    // M4: timeouts explícitos para nenhuma request pendurar um slot do pool
+    // indefinidamente (contenção de FOR UPDATE / lock). `statement_timeout`
+    // (server) cancela a query; `query_timeout` (client) é a salvaguarda; e
+    // `lock_timeout` faz a baixa desistir rápido em vez de fila no FOR UPDATE.
+    connectionTimeoutMillis: 10_000,
+    statement_timeout: 15_000,
+    query_timeout: 15_000,
+    idle_in_transaction_session_timeout: 20_000,
+    options: "-c lock_timeout=5000",
   });
 }
 

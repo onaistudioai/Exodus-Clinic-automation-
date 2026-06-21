@@ -331,18 +331,30 @@ export async function listarBomCompleto(tx: Tx): Promise<BomItem[]> {
   return rows;
 }
 
-/** Define (upsert) um item do kit. quantidade > 0. */
+/**
+ * Define (upsert) um item do kit. quantidade > 0.
+ *
+ * M2 — a FK `produto_id` valida existência IGNORANDO RLS, então um produto_id de
+ * OUTRA clínica passaria na FK. Aqui o INSERT...SELECT só grava se o produto
+ * pertencer à clínica corrente (tenant-scoped); 0 linhas afetadas = produto alheio
+ * ou inexistente → erro. Mantém o ponteiro do BOM sempre dentro do tenant.
+ */
 export async function definirBomItem(
   tx: Tx,
   args: { tipoAtendimento: TipoAtendimento; produtoId: number; quantidade: number }
 ): Promise<void> {
-  await tx.query(
+  const res = await tx.query(
     `INSERT INTO procedimento_materiais (clinica_id, tipo_atendimento, produto_id, quantidade)
-     VALUES (current_setting('app.clinica_id')::int, $1, $2, $3)
+     SELECT current_setting('app.clinica_id')::int, $1, p.id, $3
+       FROM produtos p
+      WHERE p.id = $2 AND p.clinica_id = current_setting('app.clinica_id')::int
      ON CONFLICT (clinica_id, tipo_atendimento, produto_id)
      DO UPDATE SET quantidade = EXCLUDED.quantidade`,
     [args.tipoAtendimento, args.produtoId, args.quantidade]
   );
+  if (res.rowCount === 0) {
+    throw new Error("Produto não encontrado nesta clínica.");
+  }
 }
 
 export async function removerBomItem(tx: Tx, id: number): Promise<void> {
@@ -439,11 +451,16 @@ export async function baixarPorAtendimento(
       comDivergencia++;
       let alvoLoteId = ultimoLoteId;
       if (alvoLoteId === null) {
-        // produto sem nenhum lote: cria lote sentinela p/ manter a invariante.
+        // produto sem nenhum lote: cria (ou reusa) o lote sentinela p/ manter a
+        // invariante. M3: ON CONFLICT no índice único parcial uq_lote_sentinela_
+        // divergencia serializa baixas concorrentes do mesmo produto-sem-lote num
+        // ÚNICO sentinela (DO UPDATE no-op só p/ habilitar o RETURNING id).
         const { rows } = await tx.query<{ id: number }>(
           `INSERT INTO lotes
              (clinica_id, produto_id, codigo_lote, validade, quantidade, custo_unitario)
            VALUES (current_setting('app.clinica_id')::int, $1, 'DIVERGENCIA', NULL, 0, 0)
+           ON CONFLICT (clinica_id, produto_id) WHERE codigo_lote = 'DIVERGENCIA'
+           DO UPDATE SET codigo_lote = lotes.codigo_lote
            RETURNING id`,
           [item.produto_id]
         );
