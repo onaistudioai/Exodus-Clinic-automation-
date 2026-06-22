@@ -11,7 +11,6 @@ import { Pool, type PoolClient } from "pg";
  * `app_painel` (sync point A1).
  */
 declare global {
-  // eslint-disable-next-line no-var
   var _aiosPainelPool: Pool | undefined;
 }
 
@@ -26,7 +25,9 @@ function makePool(): Pool {
     connectionString,
     // Railway PG público exige TLS; `no-verify` só enquanto dev (proxy self-signed).
     ssl: process.env.PGSSL_DISABLE === "1" ? undefined : { rejectUnauthorized: false },
-    max: 10,
+    // L1: dimensionável por env (default 10). Subir junto da cota de conexões do PG
+    // se o tráfego crescer; com os timeouts do M4, um slot não fica preso à toa.
+    max: Number(process.env.DB_POOL_MAX) || 10,
     idleTimeoutMillis: 30_000,
     // M4: timeouts explícitos para nenhuma request pendurar um slot do pool
     // indefinidamente (contenção de FOR UPDATE / lock). `statement_timeout`

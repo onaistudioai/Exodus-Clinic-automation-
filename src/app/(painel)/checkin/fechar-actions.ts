@@ -60,7 +60,7 @@ export async function gerenciarCheckin(
 
   // sempre relista (reflete o carimbo recém-feito)
   const agendamentos = await withTenantReadOnly(session.clinica_id, (tx) =>
-    agendamentosRepo.listarAbertosPorPaciente(tx, pacienteId)
+    agendamentosRepo.listarAbertosPorPaciente(tx)
   );
 
   return { pacienteId, pacienteNome, agendamentos, carregou: true, msg, erro };

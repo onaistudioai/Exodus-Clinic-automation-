@@ -7,11 +7,12 @@ import type { AgendamentoResumo } from "@/types/domain";
  * clinica_id explicitamente). É o elo SOFIA→balcão: o check-in carimba identidade aqui.
  */
 
-/** Agendamentos recentes ligados a (ou candidatos a) um paciente, p/ fechar o check-in. */
-export async function listarAbertosPorPaciente(
-  tx: Tx,
-  pacienteId: number
-): Promise<AgendamentoResumo[]> {
+/**
+ * Agendamentos recentes em aberto da clínica — candidatos a vincular no check-in.
+ * Não filtra por paciente de propósito: os agendamentos vindos da SOFIA ainda não
+ * têm `paciente_id` (é o check-in que faz esse vínculo), então a lista é clínica-wide.
+ */
+export async function listarAbertosPorPaciente(tx: Tx): Promise<AgendamentoResumo[]> {
   const { rows } = await tx.query<AgendamentoResumo>(
     `SELECT id,
             to_char(data_agendamento,'YYYY-MM-DD') AS data_agendamento,

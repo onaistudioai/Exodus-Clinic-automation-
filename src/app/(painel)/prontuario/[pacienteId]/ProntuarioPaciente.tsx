@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { registrarAtendimento, type AtendimentoState } from "./actions";
 import { RETORNO_DIAS, type EntradaProntuario, type AgendamentoResumo } from "@/types/domain";
 
@@ -42,10 +42,15 @@ export default function ProntuarioPaciente({
   const [corrigindo, setCorrigindo] = useState<number | null>(null);
   const [precisaRetorno, setPrecisaRetorno] = useState(false);
 
-  // fecha o form a cada sucesso (entradaId muda) — a lista é revalidada no servidor
-  useEffect(() => {
-    if (state.ok) setEscrevendo(false);
-  }, [state.ok, state.entradaId]);
+  // fecha o form a cada sucesso (entradaId muda) — a lista é revalidada no servidor.
+  // Padrão React de "ajustar estado quando um valor muda entre renders": guarda o
+  // valor anterior em state e corrige durante o render (setState no render é
+  // suportado), em vez de setState dentro de useEffect (cascading render).
+  const [ultimaEntradaId, setUltimaEntradaId] = useState(state.entradaId);
+  if (state.ok && state.entradaId !== ultimaEntradaId) {
+    setUltimaEntradaId(state.entradaId);
+    setEscrevendo(false);
+  }
 
   const aberto = escrevendo;
 
