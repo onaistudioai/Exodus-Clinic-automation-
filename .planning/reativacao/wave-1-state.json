@@ -1,0 +1,19 @@
+{
+  "wave": 1,
+  "P1-migracao-sql": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": ["aios-painel/.planning/reativacao/sql/001-reativacao.sql"],
+    "validated": "dry-run BEGIN..ROLLBACK = success (view compila, 0 elegíveis)",
+    "prod_applied": false,
+    "note": "aplicação em prod pendente de aprovação do user",
+    "timestamp": "2026-06-22"
+  },
+  "P2-tipos-rbac": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": ["aios-painel/src/types/domain.ts", "aios-painel/src/lib/rbac.ts"],
+    "validated": "tsc --noEmit = 0 erros",
+    "timestamp": "2026-06-22"
+  }
+}

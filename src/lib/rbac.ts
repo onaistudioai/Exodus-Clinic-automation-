@@ -14,6 +14,8 @@ import { verifySession } from "@/lib/dal";
  * | Ver estoque (níveis/alertas)     |   ✅   |   ✅   |  ✅   |
  * | Gerir estoque (produto/lote/ajuste) | ✅ |   —    |  ✅   |
  * | Configurar BOM (kit/procedimento)|   —    |   —    |  ✅   |
+ * | Ver reativação (público/métricas)|   ✅   |   ✅   |  ✅   |
+ * | Gerir reativação (campanha/disparo)| ✅  |   —    |  ✅   |
  *
  * Decisão travada: recepção NÃO lê texto clínico (só etiquetas estruturadas).
  */
@@ -25,7 +27,9 @@ export type Acao =
   | "ver_auditoria"
   | "ver_estoque"
   | "gerir_estoque"
-  | "configurar_bom";
+  | "configurar_bom"
+  | "ver_reativacao"
+  | "gerir_reativacao";
 
 const MATRIZ: Record<Acao, Papel[]> = {
   checkin: ["recepcao", "admin"],
@@ -36,6 +40,8 @@ const MATRIZ: Record<Acao, Papel[]> = {
   ver_estoque: ["recepcao", "medico", "admin"],
   gerir_estoque: ["recepcao", "admin"],
   configurar_bom: ["admin"],
+  ver_reativacao: ["recepcao", "medico", "admin"],
+  gerir_reativacao: ["recepcao", "admin"],
 };
 
 export function podeFazer(papel: Papel, acao: Acao): boolean {

@@ -228,3 +228,79 @@ export interface AcessoLog {
   paciente_id: number | null;
   entrada_id: number | null;
 }
+
+// ---- Reativação ----
+export type EstadoAlvo = "ativo" | "reativado" | "optout" | "concluido";
+export type ModoEnvio = "dry" | "live";
+
+/** Um passo da cadência: quando (offset em dias) e o template da mensagem. */
+export interface PassoCampanha {
+  offset_dias: number;
+  template: string; // suporta {nome} e {clinica}
+}
+
+/** Campanha de reativação (cadência) por clínica. Máx. 1 ativa por clínica. */
+export interface Campanha {
+  id: number;
+  clinica_id: number;
+  nome: string;
+  janela_dias: number; // inativo = sem retorno há >= janela_dias
+  passos: PassoCampanha[];
+  ativa: boolean;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Paciente elegível (view v_reativacao_inativos) — sem o filtro de janela. */
+export interface InativoElegivel {
+  paciente_id: number;
+  nome_completo: string;
+  ultimo_atendimento: string; // ISO date
+  dias_inativo: number;
+  contato_id: number;
+  chat_id: string;
+  telefone: string;
+}
+
+/** Paciente dentro de uma sequência ativa. */
+export interface AlvoReativacao {
+  id: number;
+  clinica_id: number;
+  campanha_id: number;
+  paciente_id: number;
+  contato_id: number | null;
+  passo_atual: number; // índice 0-based do PRÓXIMO passo a enviar
+  proximo_envio: string; // ISO datetime
+  status: EstadoAlvo;
+  entrou_em: string;
+  reativado_em: string | null;
+  atualizado_em: string;
+}
+
+/** Linha do livro-razão append-only de envios. */
+export interface EnvioReativacao {
+  id: number;
+  clinica_id: number;
+  alvo_id: number;
+  passo: number;
+  modo: ModoEnvio;
+  wa_status: string | null; // 'simulado' | 'ok' | 'erro'
+  wa_erro: string | null;
+  enviado_em: string;
+}
+
+/** Métricas agregadas da campanha (painel). */
+export interface MetricasReativacao {
+  elegiveis: number; // inativos que passam na janela e ainda não estão em sequência
+  em_sequencia: number; // alvos status='ativo'
+  enviados: number; // envios distintos (alvo,passo) modo live
+  reativados: number; // alvos status='reativado'
+  optout: number;
+  taxa_reativacao: number; // reativados / (reativados + em_sequencia + concluido), 0..1
+}
+
+/** Resultado de uma materialização de público (entrar pacientes na sequência). */
+export interface ResultadoMaterializacao {
+  inseridos: number;
+  ignorados: number; // já estavam em sequência/opt-out
+}
