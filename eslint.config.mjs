@@ -9,6 +9,16 @@ const eslintConfig = [
   { ignores: [".next/**", "node_modules/**", "next-env.d.ts"] },
   ...nextCoreWebVitals,
   ...nextTypescript,
+  {
+    // Honra o prefixo `_` para args/vars intencionalmente não usados — convenção já
+    // usada no código (ex.: server actions com assinatura (_prev, _fd) fixa do useActionState).
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

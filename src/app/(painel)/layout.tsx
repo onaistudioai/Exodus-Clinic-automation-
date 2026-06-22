@@ -22,6 +22,8 @@ export default async function PainelLayout({
     links.push({ href: "/prontuario", label: "Prontuário" });
   if (podeFazer(session.papel, "ver_estoque"))
     links.push({ href: "/estoque", label: "Estoque" });
+  if (podeFazer(session.papel, "ver_reativacao"))
+    links.push({ href: "/reativacao", label: "Reativação" });
   if (podeFazer(session.papel, "ver_auditoria"))
     links.push({ href: "/admin/auditoria", label: "Auditoria" });
 

@@ -1,0 +1,23 @@
+{
+  "wave": 3,
+  "depends_on": [2],
+  "P5-actions": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": ["aios-painel/src/app/(painel)/reativacao/actions.ts"],
+    "actions": ["criarCampanhaAction", "alternarCampanhaAction", "materializarAction", "rodarAtribuicaoAction"],
+    "rbac": "requireAcao('gerir_reativacao') em todas",
+    "timestamp": "2026-06-22"
+  },
+  "P6-ui": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": [
+      "aios-painel/src/app/(painel)/reativacao/page.tsx",
+      "aios-painel/src/app/(painel)/reativacao/GerenciarReativacao.tsx",
+      "aios-painel/src/app/(painel)/layout.tsx"
+    ],
+    "timestamp": "2026-06-22"
+  },
+  "gate_build": "tsc + eslint + next build VERDES; rota /reativacao gerada"
+}
