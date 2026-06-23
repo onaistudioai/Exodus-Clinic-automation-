@@ -304,3 +304,197 @@ export interface ResultadoMaterializacao {
   inseridos: number;
   ignorados: number; // já estavam em sequência/opt-out
 }
+
+// ---- Financeiro ----
+export type StatusCobranca = "aberta" | "paga" | "cancelada";
+export type TipoLancamento = "receita" | "despesa";
+export type FormaPagamento = "pix" | "cartao" | "dinheiro" | "outro";
+
+/** Categorias de despesa sugeridas (F3 da pesquisa). Campo é texto livre; isto é só o catálogo da UI. */
+export const CATEGORIAS_DESPESA = [
+  "aluguel",
+  "salarios",
+  "material",
+  "impostos",
+  "marketing",
+  "equipamentos",
+  "terceiros",
+  "outros",
+] as const;
+export type CategoriaDespesa = (typeof CATEGORIAS_DESPESA)[number];
+
+/** Preço por tipo de atendimento (tabela editável; override por cobrança). */
+export interface PrecoProcedimento {
+  id: number;
+  clinica_id: number;
+  tipo_atendimento: TipoAtendimento;
+  valor: number; // NUMERIC(12,2) lido como float8
+  ativo: boolean;
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Recebível do paciente por um atendimento (mutável: status muda). */
+export interface Cobranca {
+  id: number;
+  clinica_id: number;
+  paciente_id: number;
+  paciente_nome?: string | null; // join p/ exibição
+  entrada_prontuario_id: number | null;
+  agendamento_id: number | null;
+  tipo_atendimento: TipoAtendimento | null;
+  valor: number;
+  vencimento: string; // ISO date
+  status: StatusCobranca;
+  forma_pagamento: FormaPagamento | null;
+  pago_em: string | null;
+  motivo_cancelamento: string | null;
+  dias_atraso?: number; // derivado: vencimento < hoje && aberta
+  criado_em: string;
+  atualizado_em: string;
+}
+
+/** Linha do livro-razão append-only do caixa. valor sempre > 0; direção vem do tipo. */
+export interface Lancamento {
+  id: number;
+  clinica_id: number;
+  tipo: TipoLancamento;
+  categoria: string | null;
+  valor: number;
+  descricao: string | null;
+  cobranca_id: number | null;
+  forma_pagamento: FormaPagamento | null;
+  usuario_id: number | null;
+  criado_em: string;
+}
+
+/** Resumo de caixa de um período (derivado SÓ do livro-razão). */
+export interface ResumoCaixa {
+  receitas: number;
+  despesas: number;
+  saldo: number; // receitas − despesas
+}
+
+/** Uma faixa do aging de contas a receber (inadimplência por idade da dívida). */
+export interface LinhaAging {
+  faixa: "a_vencer" | "0_30" | "31_60" | "61_90" | "90_mais";
+  quantidade: number;
+  valor_total: number;
+}
+
+/** Margem por procedimento = receita das cobranças − custo de material (Estoque). */
+export interface MargemProcedimento {
+  tipo_atendimento: TipoAtendimento;
+  n_cobrancas: number;
+  receita_total: number;
+  custo_material: number;
+  margem: number; // receita − custo
+}
+
+/** Indicadores do topo do painel /financeiro (D7 da pesquisa). */
+export interface IndicadoresFinanceiro {
+  caixa_dia: number;
+  caixa_mes: number;
+  a_receber: number; // soma das cobranças abertas
+  inadimplencia_valor: number; // abertas e vencidas
+  inadimplencia_pct: number; // inadimplência / a_receber, 0..1
+  faturamento_mes: number; // receitas do mês
+  ticket_medio: number; // faturamento_mes / nº cobranças pagas no mês
+}
+
+// ---- Agenda + Turnos ----
+/** Dia da semana no padrão extract(dow): 0=domingo .. 6=sábado. */
+export type DiaSemana = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export const DIAS_SEMANA: { v: DiaSemana; label: string }[] = [
+  { v: 1, label: "Seg" },
+  { v: 2, label: "Ter" },
+  { v: 3, label: "Qua" },
+  { v: 4, label: "Qui" },
+  { v: 5, label: "Sex" },
+  { v: 6, label: "Sáb" },
+  { v: 0, label: "Dom" },
+];
+
+/** Profissional (entidade real, separada do login). */
+export interface Profissional {
+  id: number;
+  clinica_id: number;
+  nome: string;
+  especialidade: string | null;
+  usuario_id: number | null; // nullable: profissional sem login no painel
+  ativo: boolean;
+  criado_em: string;
+}
+
+/** Serviço do catálogo (nome → duração padrão). */
+export interface Servico {
+  id: number;
+  clinica_id: number;
+  nome: string;
+  duracao_min: number;
+  ativo: boolean;
+  criado_em: string;
+}
+
+/** Turno recorrente semanal — janela de trabalho = fonte de disponibilidade. */
+export interface Turno {
+  id: number;
+  clinica_id: number;
+  profissional_id: number;
+  profissional_nome?: string | null; // join p/ exibição
+  dia_semana: DiaSemana;
+  hora_inicio: string; // "HH:MM"
+  hora_fim: string; // "HH:MM"
+  vigencia_inicio: string; // ISO date
+  vigencia_fim: string | null;
+  ativo: boolean;
+  criado_em: string;
+}
+
+/** Bloqueio pontual (exceção que fura o turno). profissional_id null = clínica toda. */
+export interface Bloqueio {
+  id: number;
+  clinica_id: number;
+  profissional_id: number | null;
+  profissional_nome?: string | null;
+  inicio: string; // ISO datetime
+  fim: string; // ISO datetime
+  motivo: string | null;
+  criado_em: string;
+}
+
+/** Um horário livre calculado p/ um profissional num dia (disponibilidade). */
+export interface SlotLivre {
+  profissional_id: number;
+  inicio: string; // ISO datetime com offset (p/ submissão)
+  fim: string;
+  hora_label: string; // "HH:MM" em hora local da clínica (p/ exibição)
+}
+
+/** Linha da agenda do dia (agendamento + nomes resolvidos). */
+export interface AgendamentoDia {
+  id: number;
+  clinica_id: number;
+  paciente_id: number | null;
+  paciente_nome: string | null;
+  profissional_id: number | null;
+  profissional_nome: string | null;
+  servico_id: number | null;
+  servico_nome: string | null;
+  inicio: string | null; // ISO datetime com offset (p/ remarcar)
+  fim: string | null;
+  hora_inicio_label: string | null; // "HH:MM" local da clínica
+  hora_fim_label: string | null;
+  status: StatusAgendamento;
+  overbooking_intencional: boolean;
+  identidade_confirmada_em: string | null;
+}
+
+/** Indicadores do painel de agenda (D5): ocupação + no-show. */
+export interface IndicadoresAgenda {
+  agendados: number; // no período
+  realizados: number;
+  no_show: number;
+  taxa_no_show: number; // no_show / (realizados + no_show), 0..1
+  ocupacao_pct: number; // horas agendadas / horas disponíveis (turnos), 0..1
+}

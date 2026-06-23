@@ -6,6 +6,7 @@ import { verifySession } from "@/lib/dal";
 import { withTenant } from "@/lib/tenant";
 import * as prontuario from "@/server/prontuario.repo";
 import * as estoque from "@/server/estoque.repo";
+import * as financeiro from "@/server/financeiro.repo";
 import { RETORNO_DIAS, type TipoAtendimento } from "@/types/domain";
 
 const TIPOS: TipoAtendimento[] = [
@@ -123,6 +124,37 @@ export async function registrarAtendimento(
           await tx.query("ROLLBACK TO SAVEPOINT estoque_baixa");
           console.error(
             `[estoque] FALHA na baixa automática (atendimento finalizado mesmo assim): ` +
+              `entrada=${id} paciente=${pacienteId} tipo=${tipo} clinica=${session.clinica_id}: ` +
+              (e instanceof Error ? e.message : String(e))
+          );
+        }
+
+        // Cobrança automática (Módulo Financeiro), MESMA política não-bloqueante: um
+        // SAVEPOINT próprio isola a cobrança — se faltar preço cadastrado, a tabela não
+        // existir, ou qualquer erro, o ROLLBACK TO SAVEPOINT preserva o atendimento. A
+        // cobrança nasce 'aberta' com o preço vigente; anti-duplicata por entrada no repo.
+        await tx.query("SAVEPOINT financeiro_cobranca");
+        try {
+          const c = await financeiro.criarCobrancaAutomatica(tx, {
+            pacienteId,
+            entradaId: id,
+            agendamentoId,
+            tipoAtendimento: tipo,
+            // D5: vencimento D0 (no ato) por padrão. Configurável por clínica em v1.1.
+            vencimentoOffsetDias: 0,
+          });
+          if (!c.criada && c.motivo === "sem_preco") {
+            // Não é erro: a clínica ainda não cadastrou o preço deste tipo. Atendimento
+            // finaliza; o gestor cadastra o preço e cobra manualmente / relança depois.
+            console.warn(
+              `[financeiro] sem preço cadastrado p/ tipo=${tipo} clinica=${session.clinica_id}: ` +
+                `cobrança não gerada (entrada=${id}).`
+            );
+          }
+        } catch (e) {
+          await tx.query("ROLLBACK TO SAVEPOINT financeiro_cobranca");
+          console.error(
+            `[financeiro] FALHA na cobrança automática (atendimento finalizado mesmo assim): ` +
               `entrada=${id} paciente=${pacienteId} tipo=${tipo} clinica=${session.clinica_id}: ` +
               (e instanceof Error ? e.message : String(e))
           );

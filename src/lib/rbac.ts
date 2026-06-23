@@ -16,6 +16,11 @@ import { verifySession } from "@/lib/dal";
  * | Configurar BOM (kit/procedimento)|   —    |   —    |  ✅   |
  * | Ver reativação (público/métricas)|   ✅   |   ✅   |  ✅   |
  * | Gerir reativação (campanha/disparo)| ✅  |   —    |  ✅   |
+ * | Ver financeiro (caixa/recebíveis)|   ✅   |   ✅   |  ✅   |
+ * | Gerir financeiro (preço/pagar/lançar)| ✅ |   —    |  ✅   |
+ * | Ver agenda (calendário/disponibilidade)| ✅ |  ✅   |  ✅   |
+ * | Gerir agenda (marcar/remarcar/confirmar)| ✅ |  —    |  ✅   |
+ * | Gerir escala (profissionais/serviços/turnos)| — | —  |  ✅   |
  *
  * Decisão travada: recepção NÃO lê texto clínico (só etiquetas estruturadas).
  */
@@ -29,7 +34,12 @@ export type Acao =
   | "gerir_estoque"
   | "configurar_bom"
   | "ver_reativacao"
-  | "gerir_reativacao";
+  | "gerir_reativacao"
+  | "ver_financeiro"
+  | "gerir_financeiro"
+  | "ver_agenda"
+  | "gerir_agenda"
+  | "gerir_escala";
 
 const MATRIZ: Record<Acao, Papel[]> = {
   checkin: ["recepcao", "admin"],
@@ -42,6 +52,11 @@ const MATRIZ: Record<Acao, Papel[]> = {
   configurar_bom: ["admin"],
   ver_reativacao: ["recepcao", "medico", "admin"],
   gerir_reativacao: ["recepcao", "admin"],
+  ver_financeiro: ["recepcao", "medico", "admin"],
+  gerir_financeiro: ["recepcao", "admin"],
+  ver_agenda: ["recepcao", "medico", "admin"],
+  gerir_agenda: ["recepcao", "admin"],
+  gerir_escala: ["admin"],
 };
 
 export function podeFazer(papel: Papel, acao: Acao): boolean {
