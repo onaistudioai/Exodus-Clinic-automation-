@@ -11,3 +11,10 @@ next-env.d.ts
 .env*.local
 
 .DS_Store
+
+.vercel
+.env*
+
+# Arquivos de EXEMPLO devem ser versionados (nao contem segredo, so os nomes
+# das variaveis). Sem isto, um deploy novo sobe sem saber o que configurar.
+!.env*.example
