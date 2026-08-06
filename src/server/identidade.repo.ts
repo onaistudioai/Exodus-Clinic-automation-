@@ -12,21 +12,25 @@ import type { Tx } from "@/lib/db";
  * por parâmetro (mesma regra do clinica_id em withTenant). E antes de revelar
  * qualquer informação, exige-se uma segunda prova: a data de nascimento.
  *
- * ⚠️ SCHEMA A CONFIRMAR: a tabela `contatos` pertence ao schema A4 (PROC-A) e não
- * está versionada neste repositório. As colunas usadas abaixo (telefone,
- * paciente_id) precisam ser conferidas contra o banco vivo antes do primeiro
- * deploy — rodar `.planning/estoque/sql/inspect-bella.sql` ou `\d contatos`.
+ * O vínculo telefone→paciente usa o mesmo join de `marcarOptout()`
+ * (src/server/reativacao.repo.ts): contatos_whatsapp × paciente_contato, filtrando
+ * por titular e por vínculo não revogado. A clínica sai da RLS, não do WHERE.
  */
 
 export interface PacienteIdentificado {
   pacienteId: number;
   nome: string;
+  chatId: string;
 }
 
 /**
  * Resolve o paciente a partir do telefone (E.164). A RLS já restringe à clínica
- * da sessão, então dois pacientes de clínicas diferentes com o mesmo número não
- * se confundem.
+ * da sessão, então o mesmo número em duas clínicas não se confunde.
+ *
+ * Só o vínculo TITULAR resolve. Um número pode ser contato de vários pacientes
+ * (mãe que agenda para os filhos); nesse caso, responder pelo "primeiro" seria
+ * entregar dado de saúde de terceiro. O titular é único por número, e dependente
+ * precisa ser tratado por fluxo próprio — hoje cai no atendimento humano.
  *
  * Retorna null se não achar OU se achar mais de um: ambiguidade nunca deve
  * resolver em "escolhe o primeiro" quando o resultado é dado de saúde.
@@ -35,18 +39,30 @@ export async function resolverPacientePorTelefone(
   tx: Tx,
   telefoneE164: string
 ): Promise<PacienteIdentificado | null> {
-  const { rows } = await tx.query<{ paciente_id: number; nome_completo: string }>(
-    `SELECT p.id AS paciente_id, p.nome_completo
-       FROM contatos c
-       JOIN pacientes p ON p.id = c.paciente_id
+  const { rows } = await tx.query<{
+    paciente_id: number;
+    nome_completo: string;
+    chat_id: string;
+  }>(
+    `SELECT p.id AS paciente_id, p.nome_completo, c.chat_id
+       FROM contatos_whatsapp c
+       JOIN paciente_contato pc
+         ON pc.contato_id = c.id AND pc.clinica_id = c.clinica_id
+       JOIN pacientes p ON p.id = pc.paciente_id
       WHERE c.telefone = $1
+        AND pc.titular = true
+        AND pc.revogado_em IS NULL
         AND p.status = 'ativo'
       LIMIT 2`,
     [telefoneE164]
   );
 
   if (rows.length !== 1) return null;
-  return { pacienteId: rows[0].paciente_id, nome: rows[0].nome_completo };
+  return {
+    pacienteId: rows[0].paciente_id,
+    nome: rows[0].nome_completo,
+    chatId: rows[0].chat_id,
+  };
 }
 
 /**
@@ -71,6 +87,33 @@ export async function confirmarIdentidade(
     [pacienteId, dataNascimentoISO]
   );
   return rows[0]?.ok === true;
+}
+
+/**
+ * Muda o status de um agendamento **do próprio paciente**.
+ *
+ * O `paciente_id` entra no WHERE, não numa checagem antes do UPDATE: assim não
+ * existe janela entre verificar e agir, e um id de agendamento alheio
+ * simplesmente não casa (rowCount 0). É a defesa contra IDOR — a SOFIA recebe
+ * o número do agendamento do paciente, que é adivinhável.
+ */
+export async function mudarStatusDoPaciente(
+  tx: Tx,
+  pacienteId: number,
+  agendamentoId: number,
+  status: "confirmada" | "cancelada"
+): Promise<boolean> {
+  const res = await tx.query(
+    `UPDATE agendamentos_sofia_demo
+        SET status = $3
+      WHERE id = $2
+        AND paciente_id = $1
+        AND clinica_id = current_setting('app.clinica_id')::int
+        AND inicio >= now()
+        AND status NOT IN ('realizada', 'cancelada')`,
+    [pacienteId, agendamentoId, status]
+  );
+  return (res.rowCount ?? 0) > 0;
 }
 
 /**
