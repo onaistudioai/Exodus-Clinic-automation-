@@ -5,13 +5,38 @@ import { Pool, type PoolClient } from "pg";
  * a RLS FORCE das tabelas só constrange de verdade porque este role não é dono.
  * Ver DRAFT-fase0.md §0.1.
  *
- * A connection string aponta pro Railway Postgres via proxy público durante o dev
- * (TCP proxy), e via `postgres.railway.internal` quando o painel rodar dentro da
- * mesma rede Railway. Trocar a senha placeholder quando o Processo A entregar
- * `app_painel` (sync point A1).
+ * `DATABASE_URL` aponta para o Postgres gerenciado (Neon) com `sslmode=verify-full`.
+ * A senha DEVE ser a rotacionada pós-vazamento de 2026-06-23 — a antiga é pública.
  */
 declare global {
   var _aiosPainelPool: Pool | undefined;
+}
+
+/**
+ * S3 — TLS verificado por padrão.
+ *
+ * Antes: `rejectUnauthorized: false` aceitava QUALQUER certificado, inclusive o de
+ * um MITM entre o app e o banco. Como o tráfego carrega dado de saúde, isso é
+ * inaceitável em produção.
+ *
+ * Neon/Hetzner usam CA pública → a store de CAs do sistema já valida. `PGSSL_CA_CERT`
+ * (PEM) cobre o caso de CA própria. `PGSSL_DISABLE=1` só existe para Postgres local
+ * sem TLS e é IGNORADO em produção — fail-closed é o comportamento certo aqui.
+ */
+function sslConfig() {
+  const emProducao = process.env.NODE_ENV === "production";
+
+  if (process.env.PGSSL_DISABLE === "1") {
+    if (emProducao) {
+      throw new Error(
+        "PGSSL_DISABLE=1 não é permitido em produção: a conexão com o banco carrega dado de saúde e precisa de TLS verificado."
+      );
+    }
+    return undefined;
+  }
+
+  const ca = process.env.PGSSL_CA_CERT;
+  return { rejectUnauthorized: true, ...(ca ? { ca } : {}) };
 }
 
 function makePool(): Pool {
@@ -23,8 +48,7 @@ function makePool(): Pool {
   }
   return new Pool({
     connectionString,
-    // Railway PG público exige TLS; `no-verify` só enquanto dev (proxy self-signed).
-    ssl: process.env.PGSSL_DISABLE === "1" ? undefined : { rejectUnauthorized: false },
+    ssl: sslConfig(),
     // L1: dimensionável por env (default 10). Subir junto da cota de conexões do PG
     // se o tráfego crescer; com os timeouts do M4, um slot não fica preso à toa.
     max: Number(process.env.DB_POOL_MAX) || 10,
