@@ -1,45 +1,16 @@
--- 000-bootstrap.sql — o que faltava para o sistema subir num banco VAZIO.
+-- 004-auth-e-grants.sql — autenticação + privilégios. RODA DEPOIS DO SCHEMA.
 --
--- Motivo de existir: a Railway foi cancelada e o banco de produção se perdeu.
--- Ao reconstruir, descobriu-se que três coisas essenciais nunca foram
--- versionadas — existiam apenas no banco vivo, criadas direto em produção:
+-- Complementa 000-roles.sql (que só cria os roles, antes do schema). Aqui vai
+-- tudo que precisa das tabelas já existindo.
 --
---   1. os roles app_painel / app_n8n (toda a RLS depende deles)
---   2. as colunas de autenticação em `usuarios` (email, senha_hash)
---   3. a função fn_login_lookup (sem ela ninguém entra no painel)
---
--- ORDEM: schema base → módulos → **este arquivo** → 003-rate-limit → 001-lockdown
---        → 002-contract-test. O GRANT ON ALL TABLES só alcança tabela que já
---        existe, por isso este script vem depois do schema, não antes.
--- Rodar como SUPERUSER/dono. Idempotente.
+-- Preenche o que nunca foi versionado e existia só no banco morto da Railway:
+--   - colunas de autenticação em `usuarios`
+--   - a função fn_login_lookup
 BEGIN;
 
 -- ───────────────────────────────────────────────────────────────────────────
--- (1) Roles da aplicação.
---
--- NOBYPASSRLS é o ponto central de todo o modelo: a RLS FORCE só constrange
--- de verdade quem não é dono da tabela e não tem bypass. Se estes roles forem
--- criados sem isso, toda a defesa de isolamento vira decoração.
---
--- A senha vem de fora (psql -v). Nunca hardcode aqui: este arquivo vai pro git.
---   psql -v painel_pwd="'...'" -v n8n_pwd="'...'" -f 000-bootstrap.sql
+-- (1) Privilégios. QUAIS LINHAS continua sendo decisão da RLS.
 -- ───────────────────────────────────────────────────────────────────────────
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_painel') THEN
-    CREATE ROLE app_painel LOGIN;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_n8n') THEN
-    CREATE ROLE app_n8n LOGIN;
-  END IF;
-END $$;
-
-ALTER ROLE app_painel NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE INHERIT;
-ALTER ROLE app_n8n    NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE INHERIT;
-
-GRANT USAGE ON SCHEMA public TO app_painel, app_n8n;
-
--- O painel enxerga as tabelas; QUAIS LINHAS é a RLS que decide.
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO app_painel;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_painel;
 
@@ -47,16 +18,16 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_painel;
 -- Prontuário e ledger financeiro não se apagam; expurgo LGPD é lógico.
 REVOKE DELETE ON ALL TABLES IN SCHEMA public FROM app_painel, app_n8n;
 
--- Tabela nova criada depois deste script já nasce visível para o painel.
+-- Tabela criada depois deste ponto já nasce visível para o painel.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE ON TABLES TO app_painel;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO app_painel;
 
 -- ───────────────────────────────────────────────────────────────────────────
--- (2) Colunas de autenticação em `usuarios`.
---     O DRAFT versionado (sofia-demo/sql/DRAFT-prontuario-modelo.sql) tem só
---     nome/papel/ativo — email e senha_hash foram adicionados em produção.
+-- (2) Colunas de autenticação.
+--     O schema versionado (DRAFT-prontuario-modelo.sql) tem só nome/papel/ativo
+--     — email e senha_hash foram adicionados direto em produção.
 -- ───────────────────────────────────────────────────────────────────────────
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS email      text;
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_hash text;
@@ -68,17 +39,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_usuarios_email_por_clinica
   ON usuarios (clinica_id, lower(email)) WHERE email IS NOT NULL;
 
 -- ───────────────────────────────────────────────────────────────────────────
--- (3) fn_login_lookup — o furo mais crítico do inventário.
+-- (3) fn_login_lookup — o furo mais crítico do inventário pós-Railway.
 --
 -- O login roda FORA do withTenant: ainda não há tenant, é o login que o
 -- descobre. Um SELECT direto em `usuarios` voltaria 0 linhas (RLS FORCE +
 -- NOBYPASSRLS sem GUC = fail-closed). SECURITY DEFINER escapa a RLS apenas
 -- para este lookup.
 --
--- Cuidados que fazem isso ser seguro apesar do DEFINER:
---   - search_path fixo (senão o dono do schema poderia sequestrar a resolução)
---   - devolve APENAS o necessário para autenticar
---   - EXECUTE só para app_painel, revogado de PUBLIC
+-- O que torna isso seguro apesar do DEFINER:
+--   - search_path fixo (senão o dono do schema sequestraria a resolução)
+--   - devolve só o necessário para autenticar
+--   - EXECUTE apenas para app_painel, revogado de PUBLIC
 --   - filtra ativo = true: desligado não entra
 -- ───────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION fn_login_lookup(p_email text)

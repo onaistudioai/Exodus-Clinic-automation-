@@ -129,9 +129,13 @@ export async function proximosAgendamentosDoPaciente(
   pacienteId: number
 ): Promise<Array<{ inicio: string; servico: string; profissional: string; status: string }>> {
   const { rows } = await tx.query(
+    // clinica_id explícito: agendamentos_sofia_demo é a ÚNICA tabela multi-tenant
+    // sem RLS (writer legado da SOFIA quebraria com FORCE). Aqui a RLS não cobre,
+    // então o filtro é obrigatório — mesma convenção de reativacao.repo.ts.
     `SELECT inicio, servico, profissional, status
        FROM agendamentos_sofia_demo
-      WHERE paciente_id = $1
+      WHERE clinica_id = current_setting('app.clinica_id')::int
+        AND paciente_id = $1
         AND inicio >= now()
         AND status <> 'cancelado'
       ORDER BY inicio

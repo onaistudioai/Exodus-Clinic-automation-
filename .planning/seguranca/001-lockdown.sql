@@ -41,9 +41,20 @@ BEGIN
 END $$;
 
 -- (2) Roles da aplicação nunca podem escapar da RLS.
---     Dono de tabela ignora a própria policy; superuser ignora tudo.
-ALTER ROLE app_painel NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
-ALTER ROLE app_n8n    NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+--     Aqui só VERIFICAMOS: os atributos são definidos no CREATE (000-roles.sql),
+--     porque em Postgres gerenciado (Neon/RDS) o dono do banco não é superuser
+--     e `ALTER ROLE` falha com 'permission denied to alter role'.
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT rolname, rolsuper, rolbypassrls FROM pg_roles
+            WHERE rolname IN ('app_painel','app_n8n') LOOP
+    IF r.rolsuper OR r.rolbypassrls THEN
+      RAISE EXCEPTION 'Role % escapa da RLS (super=%, bypass=%) — recrie via 000-roles.sql.',
+        r.rolname, r.rolsuper, r.rolbypassrls;
+    END IF;
+  END LOOP;
+END $$;
 
 -- (3) S2 — o n8n deixa de falar com o banco. Toda escrita da SOFIA passa a
 --     entrar por /api/sofia/* (HMAC + withTenant + auditoria).
