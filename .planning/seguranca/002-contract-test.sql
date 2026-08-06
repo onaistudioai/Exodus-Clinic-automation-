@@ -114,9 +114,14 @@ END $$;
 DO $$
 DECLARE alvo int; outro int; deu_erro boolean := false;
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname='reativacao_campanhas' AND relkind='r') THEN
+    RAISE NOTICE 'PULADO(5): reativacao_campanhas não existe neste banco.';
+    RETURN;
+  END IF;
+
   SELECT min(id), max(id) INTO alvo, outro FROM clinicas;
-  IF alvo = outro THEN
-    RAISE NOTICE 'PULADO(5): só há uma clínica no banco; crie uma 2ª para testar escrita cruzada.';
+  IF alvo IS NULL OR alvo = outro THEN
+    RAISE NOTICE 'PULADO(5): são necessárias 2 clínicas para testar escrita cruzada.';
     RETURN;
   END IF;
 
