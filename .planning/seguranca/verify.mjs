@@ -53,10 +53,29 @@ const passos = [
   ["sofia-demo/sql/DRAFT-prontuario-modelo.sql", false, RAIZ],
 ];
 
+// TODAS as migrações numeradas de cada módulo, em ordem numérica — não só as 001.
+//
+// ACHADO (2026-08-06): filtrar por /^001-/ deixava de fora
+// `reativacao/004-consentimento.sql` (que cria registrar_consentimento,
+// consentimento_eventos e a coluna marketing_optin), `007-escalonamentos.sql` e
+// `estoque/004-falhas-fixes.sql`. O banco resultante subia "verde" e só quebrava
+// em uso: fn_titular_eliminar chama registrar_consentimento, e a página de
+// conformidade declarava metade das seções como não migradas.
+//
+// O que NÃO é migração e por isso fica de fora:
+//   contract-test / prove / verify -> asserção, roda depois e cria dado de teste
+//   seed                           -> dado de exemplo com clinica_id fixo
+//   preflight                      -> checagem read-only de pré-requisito
+const NAO_E_MIGRACAO = /contract-test|prove|verify|seed|preflight/;
+
 for (const dir of fs.readdirSync(path.join(PAINEL, ".planning"))) {
   const sqlDir = path.join(PAINEL, ".planning", dir, "sql");
   if (!fs.existsSync(sqlDir)) continue;
-  for (const f of fs.readdirSync(sqlDir).filter((f) => /^001-/.test(f))) {
+  const migracoes = fs
+    .readdirSync(sqlDir)
+    .filter((f) => /^\d{3}-.*\.sql$/.test(f) && !NAO_E_MIGRACAO.test(f))
+    .sort();
+  for (const f of migracoes) {
     passos.push([path.join(".planning", dir, "sql", f), true, PAINEL]);
   }
 }
@@ -64,6 +83,10 @@ for (const dir of fs.readdirSync(path.join(PAINEL, ".planning"))) {
 passos.push(
   [".planning/seguranca/004-auth-e-grants.sql", false, PAINEL],
   [".planning/seguranca/003-rate-limit.sql", false, PAINEL],
+  // 005 depende de registrar_consentimento (reativacao/004). INTOLERANTE de
+  // propósito: se aquela migração não aplicou, um banco sem os direitos do
+  // titular tem de fazer barulho aqui, não descobrir no primeiro pedido real.
+  [".planning/seguranca/005-titular.sql", false, PAINEL],
   [".planning/seguranca/001-lockdown.sql", false, PAINEL]
 );
 
@@ -128,6 +151,17 @@ try {
     fs.readFileSync(path.join(PAINEL, ".planning/seguranca/002-contract-test.sql"), "utf8")
   );
   console.log("════════════════════════════════════════════");
+
+  // Segundo contrato: direitos do titular. Faz BEGIN..ROLLBACK por conta própria,
+  // então não deixa rastro — mas depende de registrar_consentimento existir.
+  console.log("\n════════ CONTRACT-TEST DO TITULAR (LGPD) ════════");
+  await client.query(
+    fs.readFileSync(
+      path.join(PAINEL, ".planning/seguranca/006-contract-test-titular.sql"),
+      "utf8"
+    )
+  );
+  console.log("═════════════════════════════════════════════════");
   console.log("✅ nenhuma asserção falhou.");
 
   if (falhas.length) {

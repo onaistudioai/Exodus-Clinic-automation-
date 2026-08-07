@@ -14,17 +14,22 @@ BEGIN;
 -- (1) Toda tabela com clinica_id tem RLS habilitada, FORÇADA e com policy.
 -- ───────────────────────────────────────────────────────────────────────────
 --
--- EXCEÇÃO DECLARADA: `agendamentos_sofia_demo` é a única tabela multi-tenant
--- sem RLS. Ligar FORCE nela quebraria o writer legado da SOFIA (ver
--- DRAFT-prontuario-modelo.sql §7 e agenda-turnos/DRAFT §115). O controle
--- compensatório é filtrar clinica_id explicitamente em TODA query — convenção
--- seguida em reativacao.repo.ts e identidade.repo.ts.
+-- EXCEÇÃO TOLERADA: `agendamentos_sofia_demo` nasceu sem RLS por causa do writer
+-- legado da SOFIA (ver DRAFT-prontuario-modelo.sql §7 e agenda-turnos/DRAFT §115).
+-- Enquanto estiver sem RLS, o controle compensatório é filtrar clinica_id
+-- explicitamente em TODA query — convenção seguida em reativacao.repo.ts e
+-- identidade.repo.ts.
 --
--- A exceção fica aqui, visível e nomeada, em vez de o teste ser afrouxado:
--- qualquer OUTRA tabela sem RLS continua quebrando a asserção. Quando a SOFIA
--- migrar para /api/sofia/* (Wave 3), o writer legado morre e esta linha sai.
+-- O aviso é CONDICIONAL, não fixo (corrigido em 2026-08-06): o sweep de
+-- 001-lockdown.sql passou a cobrir toda tabela com clinica_id, então esta já está
+-- protegida — e o RAISE incondicional anterior anunciava um risco inexistente em
+-- todo relatório. Aviso falso em relatório de segurança treina quem lê a ignorá-lo.
+-- Se a exceção voltar a ficar de fato desprotegida, o aviso reaparece sozinho.
 DO $$
-DECLARE faltando text; excecoes text[] := ARRAY['agendamentos_sofia_demo'];
+DECLARE
+  faltando  text;
+  excecoes  text[] := ARRAY['agendamentos_sofia_demo'];
+  desprotegidas text;
 BEGIN
   SELECT string_agg(c.relname, ', ') INTO faltando
     FROM pg_class c
@@ -40,7 +45,18 @@ BEGIN
   IF faltando IS NOT NULL THEN
     RAISE EXCEPTION 'FALHA(1): tabelas multi-tenant sem RLS FORCE/policy: %', faltando;
   END IF;
-  RAISE WARNING 'RISCO ACEITO(1): % sem RLS — depende de filtro explícito no app.', excecoes;
+  -- Só avisa sobre a exceção que estiver REALMENTE desprotegida.
+  SELECT string_agg(c.relname, ', ') INTO desprotegidas
+    FROM pg_class c
+    JOIN pg_namespace ns ON ns.oid = c.relnamespace
+   WHERE ns.nspname = 'public' AND c.relkind = 'r'
+     AND c.relname = ANY(excecoes)
+     AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity
+          OR NOT EXISTS (SELECT 1 FROM pg_policies p WHERE p.tablename = c.relname));
+
+  IF desprotegidas IS NOT NULL THEN
+    RAISE WARNING 'RISCO ACEITO(1): % sem RLS — depende de filtro explícito no app.', desprotegidas;
+  END IF;
   RAISE NOTICE 'OK(1): demais tabelas multi-tenant têm RLS FORCE + policy.';
 END $$;
 
