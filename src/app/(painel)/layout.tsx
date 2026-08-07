@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { podeFazer } from "@/lib/rbac";
+import { Wordmark } from "@/components/ui";
+import { Icon } from "@/components/icons";
 import { logoutAction } from "./actions";
+import GooeyNav, { type GooeyNavItem } from "@/components/GooeyNav";
 
 /**
  * Layout protegido do painel. Roda verifySession() UMA vez para todo o grupo
@@ -15,7 +17,8 @@ export default async function PainelLayout({
 }) {
   const session = await verifySession();
 
-  const links: { href: string; label: string }[] = [];
+  const links: GooeyNavItem[] = [{ href: "/", label: "Início" }];
+  if (podeFazer(session.papel, "ver_crm")) links.push({ href: "/crm", label: "CRM" });
   if (podeFazer(session.papel, "checkin")) links.push({ href: "/checkin", label: "Check-in" });
   if (podeFazer(session.papel, "checkin")) links.push({ href: "/merge", label: "Mesclar" });
   if (podeFazer(session.papel, "ler_texto_clinico"))
@@ -33,33 +36,29 @@ export default async function PainelLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
+      <header className="hero-dark sticky top-0 z-30 border-b border-white/10">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-2.5">
           <div className="flex items-center gap-6">
-            <Link href="/" className="font-semibold">
-              AIOS Painel
-            </Link>
-            <nav className="flex gap-4 text-sm text-neutral-600">
-              {links.map((l) => (
-                <Link key={l.href} href={l.href} className="hover:text-neutral-900">
-                  {l.label}
-                </Link>
-              ))}
-            </nav>
+            <Wordmark tone="onBrand" />
+            <div className="hidden md:block">
+              <GooeyNav items={links} />
+            </div>
           </div>
-          <div className="flex items-center gap-3 text-sm text-neutral-500">
-            <span>
-              clínica #{session.clinica_id} · <b>{session.papel}</b>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="hidden items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/85 ring-1 ring-white/15 sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
+              clínica #{session.clinica_id} · {session.papel}
             </span>
             <form action={logoutAction}>
-              <button className="rounded-lg border border-neutral-300 px-2.5 py-1 hover:border-neutral-900">
-                sair
+              <button className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-white/70 transition hover:bg-white/10 hover:text-white">
+                <Icon.Logout className="h-4 w-4" />
+                <span className="hidden sm:inline">sair</span>
               </button>
             </form>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
     </div>
   );
 }

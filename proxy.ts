@@ -8,7 +8,7 @@ import { SESSION_COOKIE } from "@/lib/session";
  * a verificação real (assinatura/expiração + RBAC) acontece no DAL, perto dos dados.
  * NÃO usar proxy como única linha de defesa (docs: authentication#optimistic-checks).
  */
-const ROTAS_PUBLICAS = ["/login"];
+const ROTAS_PUBLICAS = ["/login", "/preview"];
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

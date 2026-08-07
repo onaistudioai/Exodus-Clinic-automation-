@@ -160,7 +160,13 @@ export async function obterPorId(tx: Tx, id: number) {
             to_char(data_nascimento,'YYYY-MM-DD') AS data_nascimento,
             date_part('year', age(data_nascimento))::int AS idade,
             fn_e_menor(data_nascimento) AS e_menor,
-            cpf_last4, status, to_char(criado_em,'YYYY-MM-DD') AS criado_em
+            cpf_last4, status, to_char(criado_em,'YYYY-MM-DD') AS criado_em,
+            -- via to_jsonb de propósito: colunas da migração 005 (direitos do
+            -- titular). Referenciá-las direto quebraria a ficha inteira em banco
+            -- sem a 005 aplicada; assim ausência vira NULL, que é a leitura certa
+            -- ("nenhum pedido registrado").
+            to_jsonb(pacientes)->>'eliminacao_pedida_em' AS eliminacao_pedida_em,
+            to_jsonb(pacientes)->>'anonimizado_em'       AS anonimizado_em
        FROM pacientes WHERE id = $1`,
     [id]
   );

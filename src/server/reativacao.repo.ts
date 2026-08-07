@@ -216,20 +216,87 @@ export async function rodarAtribuicao(
   return res.rowCount ?? 0;
 }
 
-/** Marca opt-out manual (encerra a sequência ativa do paciente). v1.1: gatilho via SOFIA. */
-export async function marcarOptout(tx: Tx, pacienteId: number): Promise<void> {
-  await tx.query(
-    `UPDATE reativacao_alvos
-        SET status = 'optout', atualizado_em = NOW()
-      WHERE clinica_id = current_setting('app.clinica_id')::int
-        AND paciente_id = $1 AND status = 'ativo'`,
+/**
+ * Consentimento de marketing (LGPD). Ponto único de escrita — a SP
+ * registrar_consentimento grava a prova no livro-razão, atualiza o estado do
+ * canal e, no opt-out, encerra a sequência de reativação em curso.
+ * Nunca escrever em contatos_whatsapp.marketing_optin direto.
+ * O mesmo caminho é usado pelo n8n (SOFIA detecta "SAIR" no router).
+ * @returns true se o estado mudou (false = opt-in recusado sobre opt-out anterior).
+ */
+export async function registrarConsentimento(
+  tx: Tx,
+  chatId: string,
+  tipo: "optin" | "optout",
+  origem: string,
+  evidencia?: string
+): Promise<boolean> {
+  const { rows } = await tx.query<{ mudou: boolean }>(
+    `SELECT registrar_consentimento($1, $2, $3, $4) AS mudou`,
+    [chatId, tipo, origem, evidencia ?? null]
+  );
+  return rows[0].mudou;
+}
+
+/** Opt-out pelo paciente (painel): resolve o contato titular e delega. */
+export async function marcarOptout(
+  tx: Tx,
+  pacienteId: number,
+  evidencia?: string
+): Promise<boolean> {
+  const { rows } = await tx.query<{ chat_id: string }>(
+    `SELECT c.chat_id
+       FROM paciente_contato pc
+       JOIN contatos_whatsapp c ON c.id = pc.contato_id AND c.clinica_id = pc.clinica_id
+      WHERE pc.paciente_id = $1
+        AND pc.clinica_id = current_setting('app.clinica_id')::int
+        AND pc.titular = true AND pc.revogado_em IS NULL
+      LIMIT 1`,
     [pacienteId]
   );
+  if (!rows[0]) throw new Error("Paciente sem contato titular nesta clínica.");
+  return registrarConsentimento(tx, rows[0].chat_id, "optout", "painel", evidencia);
 }
 
 // ===========================================================================
 // MÉTRICAS (painel)
 // ===========================================================================
+
+/**
+ * Receita recuperada: soma das cobranças geradas por pacientes que a campanha
+ * trouxe de volta. Fecha o ciclo que `rodarAtribuicao` abre — ela marca quem
+ * voltou, isto diz quanto isso valeu.
+ *
+ * Só conta cobrança criada DEPOIS de `reativado_em` (antes disso não é mérito da
+ * campanha) e dentro da janela de atribuição. Cobrança cancelada não conta;
+ * cobrança aberta conta, porque o atendimento aconteceu — inadimplência é outro
+ * problema, medido no módulo Financeiro.
+ *
+ * financeiro_* tem RLS própria; o filtro explícito por clinica_id é redundante e
+ * proposital (mesmo padrão do resto da DAL).
+ */
+export async function receitaRecuperada(
+  tx: Tx,
+  janelaAtribuicaoDias = 30
+): Promise<{ valor: number; pacientes: number }> {
+  const { rows } = await tx.query<{ valor: string; pacientes: number }>(
+    `SELECT COALESCE(SUM(c.valor), 0)::text        AS valor,
+            COUNT(DISTINCT c.paciente_id)::int     AS pacientes
+       FROM reativacao_alvos ra
+       JOIN financeiro_cobrancas c
+         ON c.paciente_id = ra.paciente_id
+        AND c.clinica_id  = ra.clinica_id
+        AND c.status <> 'cancelada'
+        AND c.criado_em > ra.reativado_em
+        AND c.criado_em <= ra.reativado_em + ($1 || ' days')::interval
+      WHERE ra.clinica_id = current_setting('app.clinica_id')::int
+        AND ra.status = 'reativado'
+        AND ra.reativado_em IS NOT NULL`,
+    [janelaAtribuicaoDias]
+  );
+  // NUMERIC vem como string do pg — parse explícito evita concatenação silenciosa.
+  return { valor: Number(rows[0].valor), pacientes: rows[0].pacientes };
+}
 
 export async function metricas(tx: Tx, janelaDias: number): Promise<MetricasReativacao> {
   const { rows } = await tx.query<{
@@ -253,6 +320,13 @@ export async function metricas(tx: Tx, janelaDias: number): Promise<MetricasReat
   const m = rows[0];
   const elegiveis = await contarInativos(tx, janelaDias);
   const denom = m.reativados + m.em_sequencia + m.concluido;
+  // Financeiro é módulo independente: se não estiver migrado, a Reativação não cai.
+  let receita = { valor: 0, pacientes: 0 };
+  try {
+    receita = await receitaRecuperada(tx);
+  } catch {
+    /* módulo financeiro ausente — métrica fica zerada */
+  }
   return {
     elegiveis,
     em_sequencia: m.em_sequencia,
@@ -260,5 +334,7 @@ export async function metricas(tx: Tx, janelaDias: number): Promise<MetricasReat
     reativados: m.reativados,
     optout: m.optout,
     taxa_reativacao: denom > 0 ? m.reativados / denom : 0,
+    receita_recuperada: receita.valor,
+    pacientes_faturados: receita.pacientes,
   };
 }

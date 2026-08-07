@@ -4,6 +4,8 @@ import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as financeiro from "@/server/financeiro.repo";
 import type { Cobranca, Lancamento, IndicadoresFinanceiro } from "@/types/domain";
+import { PageHeader, Stat, TableShell, Th, Td, Badge, EmptyState } from "@/components/ui";
+import { AnimatedMoney } from "@/components/AnimatedNumber";
 import GerenciarFinanceiro from "./GerenciarFinanceiro";
 
 export const brl = (n: number) =>
@@ -48,93 +50,82 @@ export default async function FinanceiroPage() {
     // tabelas ainda não migradas: estado vazio em vez de quebrar a página.
   }
 
-  const cards = [
-    { label: "Caixa hoje", valor: brl(ind.caixa_dia), cls: ind.caixa_dia < 0 ? "text-red-600" : "" },
-    { label: "Caixa do mês", valor: brl(ind.caixa_mes), cls: ind.caixa_mes < 0 ? "text-red-600" : "" },
-    { label: "A receber", valor: brl(ind.a_receber) },
+  const cards: { label: string; n: number; sub?: string; tone?: "positive" | "negative" | "warning" }[] = [
+    { label: "Caixa hoje", n: ind.caixa_dia, tone: ind.caixa_dia < 0 ? "negative" : undefined },
+    { label: "Caixa do mês", n: ind.caixa_mes, tone: ind.caixa_mes < 0 ? "negative" : undefined },
+    { label: "A receber", n: ind.a_receber },
     {
       label: "Inadimplência",
-      valor: brl(ind.inadimplencia_valor),
+      n: ind.inadimplencia_valor,
       sub: `${Math.round(ind.inadimplencia_pct * 100)}%`,
-      cls: ind.inadimplencia_valor > 0 ? "text-amber-700" : "",
+      tone: ind.inadimplencia_valor > 0 ? "warning" : undefined,
     },
-    { label: "Faturamento do mês", valor: brl(ind.faturamento_mes), cls: "text-emerald-700" },
-    { label: "Ticket médio", valor: brl(ind.ticket_medio) },
+    { label: "Faturamento do mês", n: ind.faturamento_mes, tone: "positive" },
+    { label: "Ticket médio", n: ind.ticket_medio },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="mb-1 text-2xl font-semibold">Financeiro</h1>
-          <p className="text-sm text-neutral-500">
-            Caixa, recebíveis e inadimplência. Cobrança automática a cada atendimento.
-          </p>
-        </div>
-        <nav className="flex gap-3 text-sm">
-          <Link href="/financeiro/relatorio" className="text-neutral-600 hover:text-neutral-900">
-            Margem por procedimento
+      <PageHeader
+        title="Financeiro"
+        subtitle="Caixa, recebíveis e inadimplência. Cobrança automática a cada atendimento."
+      >
+        <Link href="/financeiro/relatorio" className="text-sm text-ink-500 transition hover:text-brand-700">
+          Margem por procedimento
+        </Link>
+        {podeGerir && (
+          <Link href="/financeiro/precos" className="text-sm text-ink-500 transition hover:text-brand-700">
+            Tabela de preços
           </Link>
-          {podeGerir && (
-            <Link href="/financeiro/precos" className="text-neutral-600 hover:text-neutral-900">
-              Tabela de preços
-            </Link>
-          )}
-        </nav>
-      </div>
+        )}
+      </PageHeader>
 
       {/* Indicadores */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {cards.map((c) => (
-          <div key={c.label} className="rounded-xl bg-white p-4 ring-1 ring-black/5">
-            <div className="text-xs text-neutral-500">{c.label}</div>
-            <div className={`mt-1 text-xl font-semibold tabular-nums ${c.cls ?? ""}`}>
-              {c.valor}
-              {"sub" in c && c.sub && (
-                <span className="ml-1 text-xs font-normal text-neutral-400">({c.sub})</span>
-              )}
-            </div>
-          </div>
+          <Stat
+            key={c.label}
+            label={c.label}
+            value={<AnimatedMoney value={c.n} />}
+            sub={c.sub ? `(${c.sub})` : undefined}
+            tone={c.tone}
+          />
         ))}
       </section>
 
       {/* Inadimplentes (destaque) */}
       <section>
-        <h2 className="mb-3 text-sm font-medium text-neutral-700">
+        <h2 className="mb-3 text-sm font-medium text-ink-700">
           Inadimplentes{" "}
           {inadimplentes.length > 0 && (
-            <span className="text-neutral-400">({inadimplentes.length})</span>
+            <span className="text-ink-400">({inadimplentes.length})</span>
           )}
         </h2>
         {inadimplentes.length === 0 ? (
-          <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200">
+          <p className="rounded-card bg-emerald-50 px-4 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200">
             ✓ Nenhuma cobrança vencida em aberto.
           </p>
         ) : (
-          <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-neutral-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Paciente</th>
-                  <th className="px-4 py-2 font-medium">Vencimento</th>
-                  <th className="px-4 py-2 text-right font-medium">Atraso</th>
-                  <th className="px-4 py-2 text-right font-medium">Valor</th>
+          <TableShell>
+            <thead>
+              <tr>
+                <Th>Paciente</Th>
+                <Th>Vencimento</Th>
+                <Th className="text-right">Atraso</Th>
+                <Th className="text-right">Valor</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {inadimplentes.map((c) => (
+                <tr key={c.id}>
+                  <Td className="font-medium text-ink-900">{c.paciente_nome}</Td>
+                  <Td className="text-ink-500">{c.vencimento}</Td>
+                  <Td className="text-right tabular-nums text-amber-700">{c.dias_atraso}d</Td>
+                  <Td className="text-right tabular-nums">{brl(c.valor)}</Td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {inadimplentes.map((c) => (
-                  <tr key={c.id} className="bg-amber-50/40">
-                    <td className="px-4 py-2 font-medium text-neutral-900">{c.paciente_nome}</td>
-                    <td className="px-4 py-2 text-neutral-500">{c.vencimento}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-amber-700">
-                      {c.dias_atraso}d
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">{brl(c.valor)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableShell>
         )}
       </section>
 
@@ -147,56 +138,46 @@ export default async function FinanceiroPage() {
 
       {/* Últimos lançamentos do caixa */}
       <section>
-        <h2 className="mb-3 text-sm font-medium text-neutral-700">Últimos lançamentos (mês)</h2>
+        <h2 className="mb-3 text-sm font-medium text-ink-700">Últimos lançamentos (mês)</h2>
         {lancamentos.length === 0 ? (
-          <p className="text-sm text-neutral-400">Nenhum lançamento neste mês.</p>
+          <EmptyState>Nenhum lançamento neste mês.</EmptyState>
         ) : (
-          <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-neutral-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Data</th>
-                  <th className="px-4 py-2 font-medium">Tipo</th>
-                  <th className="px-4 py-2 font-medium">Categoria</th>
-                  <th className="px-4 py-2 font-medium">Descrição</th>
-                  <th className="px-4 py-2 text-right font-medium">Valor</th>
+          <TableShell>
+            <thead>
+              <tr>
+                <Th>Data</Th>
+                <Th>Tipo</Th>
+                <Th>Categoria</Th>
+                <Th>Descrição</Th>
+                <Th className="text-right">Valor</Th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {lancamentos.map((l) => (
+                <tr key={l.id}>
+                  <Td className="text-ink-500">{l.criado_em.slice(0, 10)}</Td>
+                  <Td>
+                    <Badge tone={l.tipo === "receita" ? "positive" : "negative"}>{l.tipo}</Badge>
+                  </Td>
+                  <Td className="text-ink-500">{l.categoria ?? "—"}</Td>
+                  <Td className="text-ink-500">{l.descricao ?? "—"}</Td>
+                  <Td
+                    className={`text-right tabular-nums ${
+                      l.tipo === "receita" ? "text-emerald-700" : "text-red-600"
+                    }`}
+                  >
+                    {l.tipo === "despesa" ? "−" : "+"}
+                    {brl(l.valor)}
+                  </Td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {lancamentos.map((l) => (
-                  <tr key={l.id}>
-                    <td className="px-4 py-2 text-neutral-500">{l.criado_em.slice(0, 10)}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          l.tipo === "receita"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-red-50 text-red-700"
-                        }`}
-                      >
-                        {l.tipo}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-neutral-500">{l.categoria ?? "—"}</td>
-                    <td className="px-4 py-2 text-neutral-500">{l.descricao ?? "—"}</td>
-                    <td
-                      className={`px-4 py-2 text-right tabular-nums ${
-                        l.tipo === "receita" ? "text-emerald-700" : "text-red-600"
-                      }`}
-                    >
-                      {l.tipo === "despesa" ? "−" : "+"}
-                      {brl(l.valor)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableShell>
         )}
         <div className="mt-3">
           <a
             href="/financeiro/export"
-            className="text-sm text-neutral-600 underline hover:text-neutral-900"
+            className="text-sm text-brand-700 underline-offset-2 hover:underline"
           >
             Exportar caixa do mês (CSV)
           </a>
@@ -211,31 +192,29 @@ function ReceberReadOnly({ abertas }: { abertas: Cobranca[] }) {
   if (abertas.length === 0) return null;
   return (
     <section>
-      <h2 className="mb-3 text-sm font-medium text-neutral-700">
-        Contas a receber <span className="text-neutral-400">({abertas.length})</span>
+      <h2 className="mb-3 text-sm font-medium text-ink-700">
+        Contas a receber <span className="text-ink-400">({abertas.length})</span>
       </h2>
-      <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
-        <table className="w-full text-sm">
-          <thead className="bg-neutral-50 text-left text-neutral-500">
-            <tr>
-              <th className="px-4 py-2 font-medium">Paciente</th>
-              <th className="px-4 py-2 font-medium">Tipo</th>
-              <th className="px-4 py-2 font-medium">Vencimento</th>
-              <th className="px-4 py-2 text-right font-medium">Valor</th>
+      <TableShell>
+        <thead>
+          <tr>
+            <Th>Paciente</Th>
+            <Th>Tipo</Th>
+            <Th>Vencimento</Th>
+            <Th className="text-right">Valor</Th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {abertas.map((c) => (
+            <tr key={c.id}>
+              <Td className="font-medium text-ink-900">{c.paciente_nome}</Td>
+              <Td className="text-ink-500">{c.tipo_atendimento ?? "—"}</Td>
+              <Td className="text-ink-500">{c.vencimento}</Td>
+              <Td className="text-right tabular-nums">{brl(c.valor)}</Td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-neutral-100">
-            {abertas.map((c) => (
-              <tr key={c.id}>
-                <td className="px-4 py-2 font-medium text-neutral-900">{c.paciente_nome}</td>
-                <td className="px-4 py-2 text-neutral-500">{c.tipo_atendimento ?? "—"}</td>
-                <td className="px-4 py-2 text-neutral-500">{c.vencimento}</td>
-                <td className="px-4 py-2 text-right tabular-nums">{brl(c.valor)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </TableShell>
     </section>
   );
 }

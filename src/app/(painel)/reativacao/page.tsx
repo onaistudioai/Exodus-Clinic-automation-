@@ -54,6 +54,27 @@ export default async function ReativacaoPage() {
         </span>
       </div>
 
+      {/* Receita recuperada — a única métrica que o dono da clínica realmente lê.
+          Só aparece quando há valor: card zerado vira ruído e desgasta a métrica. */}
+      {(metricas?.receita_recuperada ?? 0) > 0 && (
+        <section className="rounded-xl bg-emerald-50 p-5 ring-1 ring-emerald-200">
+          <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">
+            Receita recuperada pela campanha
+          </div>
+          <div className="mt-1 text-4xl font-semibold tabular-nums text-emerald-800">
+            {(metricas?.receita_recuperada ?? 0).toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
+          </div>
+          <p className="mt-1 text-xs text-emerald-700">
+            {metricas?.pacientes_faturados ?? 0} paciente
+            {(metricas?.pacientes_faturados ?? 0) === 1 ? "" : "s"} que voltaram e geraram
+            atendimento, nos 30 dias após a reativação.
+          </p>
+        </section>
+      )}
+
       {/* Métricas */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map((c) => (

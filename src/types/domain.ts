@@ -297,6 +297,10 @@ export interface MetricasReativacao {
   reativados: number; // alvos status='reativado'
   optout: number;
   taxa_reativacao: number; // reativados / (reativados + em_sequencia + concluido), 0..1
+  /** Soma das cobranças não-canceladas geradas por pacientes reativados, na janela. */
+  receita_recuperada: number;
+  /** Quantos pacientes reativados de fato geraram cobrança (<= reativados). */
+  pacientes_faturados: number;
 }
 
 /** Resultado de uma materialização de público (entrar pacientes na sequência). */
@@ -497,4 +501,96 @@ export interface IndicadoresAgenda {
   no_show: number;
   taxa_no_show: number; // no_show / (realizados + no_show), 0..1
   ocupacao_pct: number; // horas agendadas / horas disponíveis (turnos), 0..1
+}
+
+// ---- CRM (relacionamento com o paciente) ----
+/**
+ * Estágio de vida do paciente — DERIVADO em runtime (sem tabela). Prioridade do
+ * estágio primário: inadimplente > inativo > em_tratamento > novo > ativo.
+ */
+export type EstagioCrm =
+  | "inadimplente"
+  | "inativo"
+  | "em_tratamento"
+  | "novo"
+  | "ativo";
+
+export const ESTAGIOS_CRM: { v: EstagioCrm; label: string; cls: string }[] = [
+  { v: "inadimplente", label: "Inadimplente", cls: "text-rose-700 bg-rose-50 ring-rose-200" },
+  { v: "inativo", label: "Inativo", cls: "text-amber-700 bg-amber-50 ring-amber-200" },
+  { v: "em_tratamento", label: "Em tratamento", cls: "text-emerald-700 bg-emerald-50 ring-emerald-200" },
+  { v: "novo", label: "Novo", cls: "text-sky-700 bg-sky-50 ring-sky-200" },
+  { v: "ativo", label: "Ativo", cls: "text-neutral-700 bg-neutral-50 ring-neutral-200" },
+];
+
+/** Uma linha do pipeline (paciente + estágio derivado + sinais). */
+export interface LinhaPipeline {
+  paciente_id: number;
+  nome_completo: string;
+  estagio: EstagioCrm;
+  ultimo_atendimento: string | null; // ISO date | null
+  dias_inativo: number | null;
+  tem_agendamento_futuro: boolean;
+  inadimplente: boolean;
+  tarefas_abertas: number;
+}
+
+/** Contagem de pacientes por estágio (cabeçalho do pipeline). */
+export interface ContagemEstagio {
+  estagio: EstagioCrm;
+  total: number;
+}
+
+/** Tarefa de follow-up do CRM (tabela crm_tarefas). */
+export interface TarefaCrm {
+  id: number;
+  paciente_id: number;
+  titulo: string;
+  descricao: string | null;
+  vencimento: string | null; // ISO date | null
+  status: "aberta" | "concluida";
+  criado_por: number | null;
+  criado_em: string;
+  concluida_em: string | null;
+}
+
+/** Linha enxuta de agendamento para a ficha 360 (agendamentos_sofia_demo). */
+export interface AgendamentoPaciente {
+  id: number;
+  data_agendamento: string; // ISO date
+  hora_agendamento: string | null;
+  status: string;
+}
+
+/** Cobrança enxuta p/ a ficha 360 (evita puxar a linha inteira do financeiro). */
+export interface CobrancaResumo {
+  id: number;
+  valor: number;
+  vencimento: string; // ISO date
+  status: StatusCobranca;
+  tipo_atendimento: TipoAtendimento | null;
+  dias_atraso: number;
+}
+
+/** Bloco não-clínico da ficha 360 (agrega o que não exige RBAC clínico). */
+export interface Ficha360 {
+  paciente: {
+    id: number;
+    nome_completo: string;
+    data_nascimento: string;
+    idade: number;
+    e_menor: boolean;
+    cpf_last4: string | null;
+    status: string;
+    criado_em: string;
+    /** Migração 005 (direitos do titular). NULL = nenhum pedido registrado. */
+    eliminacao_pedida_em: string | null;
+    anonimizado_em: string | null;
+  };
+  estagio: EstagioCrm;
+  proximos: AgendamentoPaciente[];
+  ultimos: AgendamentoPaciente[];
+  cobrancas: CobrancaResumo[];
+  reativacao_status: EstadoAlvo | null;
+  tarefas: TarefaCrm[];
 }

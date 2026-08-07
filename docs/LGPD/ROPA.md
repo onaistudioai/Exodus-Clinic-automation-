@@ -75,6 +75,34 @@
 - **Retenção:** 30 dias
 - **Nota:** minimização deliberada; sem retenção indefinida
 
+## Atendimento aos direitos do titular (art. 18)
+
+| Direito | Como é atendido | Onde |
+|---|---|---|
+| Confirmação e acesso (II) | Dossiê completo em JSON, gerado pela clínica na ficha do paciente | `GET /api/titular/{id}/dossie` — médico/admin, auditado |
+| Portabilidade (V) | Mesmo dossiê, formato interoperável | idem |
+| Eliminação (VI) | Encerra canal e comunicação ativa na hora; registra o pedido com data e motivo | `fn_titular_eliminar` — admin |
+| Revogação de consentimento (art. 8º §5) | Opt-out pelo próprio WhatsApp, sem step-up | `POST /api/sofia/optout` |
+
+**Limite declarado ao titular:** o pedido de eliminação **não apaga o prontuário** enquanto
+corre o prazo do CFM — art. 16, I da LGPD ressalva a guarda por obrigação legal e ela
+prevalece. O recibo entregue à clínica informa a data exata em que a retenção vence.
+
+## Cumprimento dos prazos de retenção
+
+Os prazos acima não são declaratórios: `fn_expurgo_retencao()` roda diariamente
+(cron 04:00, `vercel.json` → `/api/cron/retencao`) e executa:
+
+- `login_tentativas`: apaga acima de 30 dias (§7);
+- titulares com eliminação pedida **e** prazo legal vencido: desidentifica a linha
+  (nome substituído, CPF removido) e expurga o texto clínico.
+
+Deliberadamente **não** expurgados: `prontuario_acessos` (trilha de auditoria — apagar
+prova de acesso é pior que retê-la) e os livros-razão append-only de financeiro e
+reativação, cujo prazo de 5 anos vence a partir de 2031.
+
+Prova executável: `.planning/seguranca/006-contract-test-titular.sql` (6 asserções).
+
 ## Medidas de segurança
 
 Ver [DPA §5](./DPA-clinica.md#5-medidas-técnicas-e-organizacionais). Prova automatizada do isolamento entre clínicas: `.planning/seguranca/002-contract-test.sql`.

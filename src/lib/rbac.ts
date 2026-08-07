@@ -39,7 +39,9 @@ export type Acao =
   | "gerir_financeiro"
   | "ver_agenda"
   | "gerir_agenda"
-  | "gerir_escala";
+  | "gerir_escala"
+  | "ver_crm"
+  | "gerir_crm";
 
 const MATRIZ: Record<Acao, Papel[]> = {
   checkin: ["recepcao", "admin"],
@@ -57,6 +59,8 @@ const MATRIZ: Record<Acao, Papel[]> = {
   ver_agenda: ["recepcao", "medico", "admin"],
   gerir_agenda: ["recepcao", "admin"],
   gerir_escala: ["admin"],
+  ver_crm: ["recepcao", "medico", "admin"],
+  gerir_crm: ["recepcao", "admin"],
 };
 
 export function podeFazer(papel: Papel, acao: Acao): boolean {
