@@ -162,6 +162,17 @@ try {
     )
   );
   console.log("═════════════════════════════════════════════════");
+
+  // Terceiro contrato: fronteira de domínio do Prontuário. Excluído do
+  // auto-discovery pelo regex NAO_E_MIGRACAO, como os outros contract-tests.
+  console.log("\n════════ CONTRACT-TEST DA FRONTEIRA (PRONTUÁRIO) ════════");
+  await client.query(
+    fs.readFileSync(
+      path.join(PAINEL, ".planning/prontuario/sql/002-contract-test-prontuario.sql"),
+      "utf8"
+    )
+  );
+  console.log("═════════════════════════════════════════════════════════");
   console.log("✅ nenhuma asserção falhou.");
 
   if (falhas.length) {
