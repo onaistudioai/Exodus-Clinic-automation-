@@ -512,7 +512,7 @@ export async function custoPorProcedimento(
             COALESCE(SUM(-m.quantidade * COALESCE(m.custo_unitario,0)),0)::float8 AS custo_total,
             (COALESCE(SUM(-m.quantidade * COALESCE(m.custo_unitario,0)),0)
               / NULLIF(COUNT(DISTINCT pe.id),0))::float8 AS custo_medio
-       FROM prontuario_entradas pe
+       FROM v_prontuario_indicador pe
        JOIN movimentacoes_estoque m
          ON m.entrada_prontuario_id = pe.id
         AND m.clinica_id = current_setting('app.clinica_id')::int

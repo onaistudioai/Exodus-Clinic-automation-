@@ -22,8 +22,8 @@ export async function listarEtiquetas(
   const { rows } = await tx.query<EntradaEtiqueta>(
     `SELECT id, estado, tipo_atendimento, precisa_retorno,
             to_char(criado_em,'YYYY-MM-DD"T"HH24:MI:SS') AS criado_em
-       FROM prontuario_entradas
-      WHERE paciente_id = $1 AND expurgado = false
+       FROM v_prontuario_visivel
+      WHERE paciente_id = $1
       ORDER BY criado_em DESC`,
     [pacienteId]
   );
@@ -108,6 +108,24 @@ export async function corrigir(
     [e.pacienteId, e.agendamentoId, e.profissionalId, e.corrigeEntradaId]
   );
   return rows[0].id;
+}
+
+/**
+ * Merge de pacientes: reatribui o histórico clínico da `origem` p/ o `destino`.
+ * Chamado de dentro da transação do merge (`pacientes.repo.mesclar`). O trigger
+ * append-only não bloqueia troca de `paciente_id` — só guarda campos de conteúdo.
+ * Sem filtro de clinica_id: a RLS FORCE da tabela já restringe ao GUC.
+ */
+export async function reatribuirPaciente(
+  tx: Tx,
+  destinoId: number,
+  origemId: number
+): Promise<number> {
+  const r = await tx.query(
+    `UPDATE prontuario_entradas SET paciente_id = $1 WHERE paciente_id = $2`,
+    [destinoId, origemId]
+  );
+  return r.rowCount ?? 0;
 }
 
 /** Expurgo lógico (LGPD, admin): anula conteúdo, preserva a linha. */

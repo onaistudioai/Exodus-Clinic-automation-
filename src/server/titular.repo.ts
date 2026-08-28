@@ -157,6 +157,10 @@ export async function dossie(tx: Tx, pacienteId: number): Promise<DossieTitular>
     return rows;
   });
 
+  // EXCEÇÃO VIGIADA: único acesso direto a `prontuario_entradas` fora de
+  // prontuario.repo. A fronteira (v_prontuario_visivel) não serve aqui por
+  // construção — ela existe justamente para NÃO expor texto_clinico, e o art. 18
+  // da LGPD obriga a devolver o texto ao próprio titular. Não trocar pela view.
   const prontuario = await secao(async () => {
     const { rows } = await tx.query(
       `SELECT id, tipo_atendimento, texto_clinico, orientacoes_paciente, expurgado,

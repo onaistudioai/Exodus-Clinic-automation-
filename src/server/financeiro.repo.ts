@@ -360,7 +360,7 @@ export async function margemPorProcedimento(
      custo AS (
        SELECT pe.tipo_atendimento,
               COALESCE(SUM(-m.quantidade * COALESCE(m.custo_unitario,0)),0)::float8 AS custo_material
-         FROM prontuario_entradas pe
+         FROM v_prontuario_indicador pe
          JOIN movimentacoes_estoque m
            ON m.entrada_prontuario_id = pe.id
           AND m.clinica_id = current_setting('app.clinica_id')::int

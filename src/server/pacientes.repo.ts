@@ -1,5 +1,6 @@
 import "server-only";
 import type { Tx } from "@/lib/db";
+import { reatribuirPaciente } from "./prontuario.repo";
 import type {
   ResultadoBusca,
   NovoPaciente,
@@ -93,7 +94,7 @@ export async function vincularResponsavel(
 
 /**
  * Resumo p/ a tela de merge: dados de conferência + contagem do que será movido.
- * RLS cobre `pacientes`/`prontuario_entradas`; `agendamentos_sofia_demo` está fora da
+ * RLS cobre `pacientes`/`v_prontuario_visivel`; `agendamentos_sofia_demo` está fora da
  * RLS → filtro explícito por current_setting('app.clinica_id').
  */
 export async function resumoParaMerge(tx: Tx, id: number): Promise<ResumoMerge | null> {
@@ -107,8 +108,8 @@ export async function resumoParaMerge(tx: Tx, id: number): Promise<ResumoMerge |
             (SELECT count(*)::int FROM agendamentos_sofia_demo a
               WHERE a.paciente_id = p.id
                 AND a.clinica_id = current_setting('app.clinica_id')::int) AS n_agendamentos,
-            (SELECT count(*)::int FROM prontuario_entradas pr
-              WHERE pr.paciente_id = p.id AND pr.expurgado = false)         AS n_prontuario
+            (SELECT count(*)::int FROM v_prontuario_visivel pr
+              WHERE pr.paciente_id = p.id)                                  AS n_prontuario
        FROM pacientes p
       WHERE p.id = $1`,
     [id]
@@ -125,8 +126,8 @@ export interface MergeCounts {
  * Merge LÓGICO (DRAFT-checkin-ux.md §MERGE): move o histórico (agendamentos +
  * prontuário) da `origem` p/ o `destino` e marca a origem como `mesclado`
  * (mesclado_para_id). Nada é apagado — append-only/auditável e reversível à mão.
- * O trigger append-only do prontuário NÃO bloqueia troca de `paciente_id` (só guarda
- * campos de conteúdo). Deve rodar dentro de UMA `withTenant` (atômico).
+ * A parte clínica é delegada a `prontuario.reatribuirPaciente` — nenhuma escrita em
+ * `prontuario_entradas` acontece fora do dono. Deve rodar dentro de UMA `withTenant`.
  */
 export async function mesclar(
   tx: Tx,
@@ -140,17 +141,14 @@ export async function mesclar(
         AND clinica_id = current_setting('app.clinica_id')::int`,
     [destinoId, origemId]
   );
-  const pr = await tx.query(
-    `UPDATE prontuario_entradas SET paciente_id = $1 WHERE paciente_id = $2`,
-    [destinoId, origemId]
-  );
+  const prMovidos = await reatribuirPaciente(tx, destinoId, origemId);
   await tx.query(
     `UPDATE pacientes
         SET status = 'mesclado', mesclado_para_id = $1, atualizado_em = NOW()
       WHERE id = $2`,
     [destinoId, origemId]
   );
-  return { agendamentos: ag.rowCount ?? 0, prontuario: pr.rowCount ?? 0 };
+  return { agendamentos: ag.rowCount ?? 0, prontuario: prMovidos };
 }
 
 /** Ficha mínima por id (RLS garante que só vem se for da clínica da sessão). */

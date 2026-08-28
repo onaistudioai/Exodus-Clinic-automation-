@@ -18,8 +18,8 @@ import type {
  * inadimplente > inativo > em_tratamento > novo > ativo.
  *
  * clinica_id vem do GUC app.clinica_id (setado por withTenant). `pacientes`,
- * `prontuario_entradas` e `financeiro_*` têm RLS FORCE — o filtro por tenant é
- * automático. `agendamentos_sofia_demo` NÃO tem RLS -> filtro explícito por
+ * `v_prontuario_visivel` (fronteira do Prontuário — ver .planning/prontuario/sql)
+ * e `financeiro_*` têm RLS FORCE — o filtro por tenant é automático. `agendamentos_sofia_demo` NÃO tem RLS -> filtro explícito por
  * current_setting (mesma regra dos outros repos). RBAC é aplicado na Action.
  *
  * ponytail: janela de inatividade fixa (default 30d). Se cada clínica precisar de
@@ -48,8 +48,8 @@ function baseCte(janelaDias: number): string {
                  AND a.clinica_id = current_setting('app.clinica_id')::int
                  AND a.status IN ('pendente','confirmada')
                  AND a.data_agendamento >= CURRENT_DATE)    AS tem_futuro,
-      EXISTS (SELECT 1 FROM prontuario_entradas pe
-               WHERE pe.paciente_id = p.id AND pe.expurgado = false
+      EXISTS (SELECT 1 FROM v_prontuario_visivel pe
+               WHERE pe.paciente_id = p.id
                  AND pe.precisa_retorno = true)             AS retorno_pendente
       FROM pacientes p
       LEFT JOIN LATERAL (
