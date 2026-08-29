@@ -2,7 +2,7 @@
 
 > Painel clínico do AIOS.clinic. Onde o atendimento sai do WhatsApp (SOFIA) e entra na
 > operação da clínica: check-in, identidade, prontuário. Multi-tenant com isolamento
-> real (RLS). Stack: Next.js 16 (App Router) + Postgres (Railway) via `pg`.
+> real (RLS). Stack: Next.js 16 (App Router) + Postgres (Neon) via `pg`.
 
 ## 1. Princípios
 
@@ -32,7 +32,7 @@
 │  src/lib/tenant        withTenant / withTenantReadOnly (GUC)  │
 │  src/lib/db            pool pg (role app_painel, lazy)        │
 ├─────────────────────────────────────────────────────────────┤
-│  Postgres (Railway)    RLS FORCE + policy rls_tenant + grants │
+│  Postgres (Neon)       RLS FORCE + policy rls_tenant + grants │
 └─────────────────────────────────────────────────────────────┘
 ```
 

@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 
 /**
  * CPF: opcional, único, DESAMBIGUA (não autentica). Guardamos só hash + last4.
- * Pepper FORA do banco (env CPF_PEPPER / secret Railway). Ver
+ * Pepper FORA do banco (env CPF_PEPPER / environment variable da Vercel). Ver
  * DRAFT-prontuario-modelo.sql (pacientes.cpf_hash) e DRAFT-checkin-ux.md Caminho A.
  *
  *   cpf_hash  = sha256(cpf_normalizado || pepper)  (hex)  -> bate com uq_pac_cpf

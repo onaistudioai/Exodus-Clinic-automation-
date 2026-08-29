@@ -43,7 +43,7 @@ function makePool(): Pool {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     throw new Error(
-      "DATABASE_URL ausente. Configure a variável apontando para app_painel@Railway PG."
+      "DATABASE_URL ausente. Configure a variável apontando para app_painel no Postgres (Neon)."
     );
   }
   return new Pool({

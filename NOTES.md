@@ -1,6 +1,6 @@
 # aios-painel — notas de execução (PROC-B)
 
-Painel Next 16 do AIOS.clinic: auth + check-in, sobre **Railway Postgres** (não Supabase),
+Painel Next 16 do AIOS.clinic: auth + check-in, sobre **Postgres no Neon** (não Supabase),
 conectando como role `app_painel` (não-dono → RLS FORCE vale). App **novo**, separado da
 demo `aios-clinicas`. Contrato de schema: `sofia-demo/sql/DRAFT-*`.
 
@@ -15,7 +15,7 @@ demo `aios-clinicas`. Contrato de schema: `sofia-demo/sql/DRAFT-*`.
 | B5 UI Check-in | ✅ busca-antes-de-criar + desambiguação + criar-novo + fechar-check-in (carimbo) + **merge** (fora do balcão, dupla confirmação) — todos com E2E live |
 | **Wave 2 — Prontuário** | ✅ busca (médico/admin) + `/prontuario/[id]` (histórico c/ texto clínico, registrar atendimento, correção append-only, auditoria) — E2E live |
 | **Governança** | ✅ `/pacientes/[id]` (recepção: ficha + etiquetas, SEM texto clínico) + `/admin/auditoria` (admin: trilha prontuario_acessos) — E2E live + RBAC negativo |
-| **Deploy Railway** | ✅ serviço `aios-painel` (id de635348) no nurturing-gentleness; live, boot limpo, proxy redirige |
+| **Deploy** | 🔴 **fora do ar desde 2026-07-27.** O serviço `aios-painel` (id de635348) vivia na Railway, cuja assinatura foi cancelada; a URL `aios-painel-production.up.railway.app` está morta. Destino registrado: Vercel (`docs/DEPLOY.md` §2) |
 
 ## Governança — etiquetas (recepção) + auditoria (admin) (feito 2026-06-16)
 Fecha o ciclo do prontuário com as duas views read-only que faltavam.
@@ -121,8 +121,8 @@ buraco entre quem agendou (Sofia, por chat_id/telefone) e quem sentou na cadeira
 - `CriarPaciente.tsx` — date-picker (max=hoje) mostra idade ao vivo; revela bloco responsável se <18. Ligado no `BuscaPaciente` (botão pós-busca pré-preenche nome/CPF buscado).
 
 ## Deploy (live)
-- URL: https://aios-painel-production.up.railway.app — `/login` 200, `/` e `/checkin` → 307 /login.
-- Conecta como `app_painel` via `DATABASE_URL` (interna). Vars no Railway: DATABASE_URL, AUTH_SECRET, CPF_PEPPER (cofre `exodus/painel.env` + `postgres.env`).
+- URL (morta desde 2026-07-27): ~~https://aios-painel-production.up.railway.app~~ — na época `/login` 200, `/` e `/checkin` → 307 /login.
+- Conecta como `app_painel` via `DATABASE_URL`. As três vars (DATABASE_URL, AUTH_SECRET, CPF_PEPPER, cofre `exodus/painel.env` + `postgres.env`) precisam ser recriadas como environment variables da Vercel.
 - Container "Ready in 176ms", sem erro de conexão no boot.
 
 ## Prova de RLS end-to-end
