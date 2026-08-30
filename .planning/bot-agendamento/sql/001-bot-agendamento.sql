@@ -20,10 +20,32 @@ ALTER TABLE paciente_contato
   ADD COLUMN IF NOT EXISTS papel papel_vinculo,
   ADD COLUMN IF NOT EXISTS nivel nivel_autorizacao NOT NULL DEFAULT 'nenhum';
 
--- `titular` booleano já existia; papel deriva dele no backfill e passa a ser a fonte.
+-- `titular` booleano já existia. papel deriva dele — no backfill e, daqui em diante,
+-- em todo INSERT que não informar papel.
 UPDATE paciente_contato SET papel = CASE WHEN titular THEN 'titular'::papel_vinculo ELSE 'autorizado'::papel_vinculo END
  WHERE papel IS NULL;
+
+-- Sem isto, tornar papel NOT NULL quebraria TODO escritor existente de paciente_contato
+-- (hoje: reativacao/005 e seguranca/006; amanhã, qualquer repo novo). Derivar na tabela
+-- conserta todos de uma vez, em vez de remendar cada chamador.
+CREATE OR REPLACE FUNCTION trg_papel_do_titular() RETURNS TRIGGER
+LANGUAGE plpgsql AS $fn$
+BEGIN
+  IF NEW.papel IS NULL THEN
+    NEW.papel := CASE WHEN NEW.titular THEN 'titular' ELSE 'autorizado' END::papel_vinculo;
+  END IF;
+  RETURN NEW;
+END$fn$;
+
+DROP TRIGGER IF EXISTS t_papel_do_titular ON paciente_contato;
+CREATE TRIGGER t_papel_do_titular
+  BEFORE INSERT OR UPDATE ON paciente_contato
+  FOR EACH ROW EXECUTE FUNCTION trg_papel_do_titular();
+
 ALTER TABLE paciente_contato ALTER COLUMN papel SET NOT NULL;
+
+-- `nivel` continua com DEFAULT 'nenhum': papel é descritivo, nivel é o que dá poder.
+-- Vínculo criado por um escritor antigo fica classificado mas sem autorização — fail-closed.
 
 -- --------------------------------------------------------------------------
 -- AGENDA — reserva temporária, origem e remarcação.
