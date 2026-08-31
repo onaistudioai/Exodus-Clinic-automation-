@@ -1,0 +1,113 @@
+-- ============================================================================
+-- 002-estados-e-payload.sql — Camada A, 2º módulo (ex-etapa 3): o motor de
+-- confirmação ganha os estados que faltavam e o contrato de privacidade.
+--
+-- O QUE FALTAVA: o rascunho desenhou só o fluxo feliz. "não", silêncio e
+-- ambiguidade não eram estados — eram ausência de estado. Cada um agora tem
+-- uma ação definida (§5): recusada libera vaga (só avisa a recepção, §12.4),
+-- sem_resposta marca risco de falta, escalado_humano tira o bot do caminho.
+--
+-- TESE 3 (reduzir severidade, não probabilidade): fn_payload_lembrete é o
+-- ENVELOPE LACRADO. Nenhum caminho de código monta mensagem a partir de
+-- SELECT * — o n8n chama a função e recebe só as 4 chaves publicáveis.
+-- Campo clínico não tem rota até o WhatsApp; erro de destinatário deixa de ser
+-- vazamento de dado de saúde e vira lembrete para a pessoa errada.
+--
+-- Depende de: bot-agendamento/001 (chk_status_agendamento, tipo_evento,
+-- eventos_agendamento). Idempotente.
+-- ============================================================================
+BEGIN;
+
+-- ---------------------------------------------------------------------------
+-- ESTADOS (§5). Reescreve o CHECK de bot-agendamento/001 acrescentando os três.
+-- 'recusada' é distinta de 'cancelada': cancelada é ato da clínica, recusada é
+-- resposta negativa do paciente — e só a segunda vira métrica de comunicação.
+-- ---------------------------------------------------------------------------
+ALTER TABLE agendamentos_sofia_demo DROP CONSTRAINT IF EXISTS chk_status_agendamento;
+ALTER TABLE agendamentos_sofia_demo ADD CONSTRAINT chk_status_agendamento
+  CHECK (status IN ('reservada','agendada','confirmada','cancelada','remarcada',
+                    'realizada','no_show','expirada',
+                    'recusada','sem_resposta','escalado_humano'));
+
+DO $$ BEGIN ALTER TYPE tipo_evento ADD VALUE IF NOT EXISTS 'recusado';     EXCEPTION WHEN undefined_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE tipo_evento ADD VALUE IF NOT EXISTS 'sem_resposta'; EXCEPTION WHEN undefined_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE tipo_evento ADD VALUE IF NOT EXISTS 'escalado';     EXCEPTION WHEN undefined_object THEN NULL; END $$;
+
+-- ---------------------------------------------------------------------------
+-- ESCALADA (§12.3: 2 falhas). O contador vive no agendamento e a transição é do
+-- BANCO, não de cada chamador: n8n, painel e qualquer script futuro escalam pelo
+-- mesmo caminho. Remendar em cada chamador deixaria os irmãos quebrados.
+-- ---------------------------------------------------------------------------
+ALTER TABLE agendamentos_sofia_demo
+  ADD COLUMN IF NOT EXISTS falhas_classificacao SMALLINT NOT NULL DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION trg_escala_por_falhas() RETURNS TRIGGER
+LANGUAGE plpgsql AS $fn$
+BEGIN
+  IF NEW.falhas_classificacao >= 2
+     AND NEW.status NOT IN ('escalado_humano','cancelada','realizada','no_show','expirada') THEN
+    NEW.status := 'escalado_humano';
+  END IF;
+  RETURN NEW;
+END;
+$fn$;
+DROP TRIGGER IF EXISTS t_escala_por_falhas ON agendamentos_sofia_demo;
+CREATE TRIGGER t_escala_por_falhas
+  BEFORE UPDATE OF falhas_classificacao ON agendamentos_sofia_demo
+  FOR EACH ROW EXECUTE FUNCTION trg_escala_por_falhas();
+
+-- O evento correspondente, para a trilha do §5 ficar completa no livro-razão.
+CREATE OR REPLACE FUNCTION trg_evento_escalado() RETURNS TRIGGER
+LANGUAGE plpgsql AS $fn$
+BEGIN
+  IF NEW.status = 'escalado_humano' AND OLD.status IS DISTINCT FROM 'escalado_humano' THEN
+    INSERT INTO eventos_agendamento (clinica_id, agendamento_id, tipo, origem, ator)
+    VALUES (NEW.clinica_id, NEW.id, 'escalado', 'sistema', 'trg_escala_por_falhas');
+  END IF;
+  RETURN NULL;
+END;
+$fn$;
+-- SEM `OF status`: um UPDATE de falhas_classificacao escala pelo trigger BEFORE
+-- acima, mas `AFTER UPDATE OF status` NÃO dispararia — a cláusula OF olha as
+-- colunas do SET, não o que o BEFORE mudou. Com a lista, a escalada automática
+-- (o caminho normal) nunca entraria no livro-razão. Provado pelo teste (5c).
+DROP TRIGGER IF EXISTS t_evento_escalado ON agendamentos_sofia_demo;
+CREATE TRIGGER t_evento_escalado
+  AFTER UPDATE ON agendamentos_sofia_demo
+  FOR EACH ROW WHEN (NEW.status IS DISTINCT FROM OLD.status)
+  EXECUTE FUNCTION trg_evento_escalado();
+
+-- ---------------------------------------------------------------------------
+-- CONTRATO DE PAYLOAD (§4.3) — o envelope lacrado.
+-- Devolve EXATAMENTE {nome, data_hora, unidade, profissional}. Nada de
+-- procedimento, servico, gravidade ou qualquer texto clínico.
+-- SECURITY INVOKER: a RLS do chamador continua valendo; a função não é uma porta
+-- lateral para ler agendamento de outra clínica.
+-- Chamador barrado pela catraca recebe NULL — a fila e o envelope concordam.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_payload_lembrete(p_agendamento_id INTEGER)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = public AS $fn$
+DECLARE r JSONB;
+BEGIN
+  IF fn_motivo_barrado(p_agendamento_id) IS NOT NULL THEN RETURN NULL; END IF;
+
+  SELECT jsonb_build_object(
+           'nome',         p.nome_completo,
+           'data_hora',    to_char(ag.inicio AT TIME ZONE c.timezone, 'DD/MM/YYYY HH24:MI'),
+           'unidade',      c.nome,
+           'profissional', COALESCE(pr.nome, ag.profissional_legado)
+         )
+    INTO r
+    FROM agendamentos_sofia_demo ag
+    JOIN pacientes p  ON p.id = ag.paciente_id
+    JOIN clinicas  c  ON c.id = ag.clinica_id
+    LEFT JOIN profissionais pr ON pr.id = ag.profissional_id
+   WHERE ag.id = p_agendamento_id;
+
+  RETURN r;
+END;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION fn_payload_lembrete(INTEGER) TO app_painel, app_n8n;
+
+COMMIT;
