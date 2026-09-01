@@ -29,6 +29,54 @@ ALTER TABLE agendamentos_sofia_demo ADD CONSTRAINT chk_status_agendamento
                     'realizada','no_show','expirada',
                     'recusada','sem_resposta','escalado_humano'));
 
+-- ---------------------------------------------------------------------------
+-- A MÁQUINA DE TRANSIÇÕES precisa aprender os estados novos.
+--
+-- bot-agendamento/002 impõe `fn_transicao_valida` por trigger, com `ELSE false`.
+-- Acrescentar valores só ao CHECK deixa os três novos INALCANÇÁVEIS e cria dois
+-- bugs que um teste isolado não vê:
+--   1. `escalado_humano` vira beco sem saída — nunca mais confirma nem cancela;
+--   2. t_escala_por_falhas roda ANTES de t_estado_agendamento (ordem alfabética),
+--      então a escalada automática levantaria exceção e quebraria todo UPDATE de
+--      falhas_classificacao.
+--   3. `recusada` inalcançável = fila reversa nunca dispara.
+-- Quem acrescenta estado ensina a máquina. Descoberto ao aplicar em produção.
+-- ---------------------------------------------------------------------------
+DO $$ BEGIN
+  PERFORM 1 FROM pg_proc WHERE proname = 'fn_transicao_valida';
+  IF FOUND THEN
+    CREATE OR REPLACE FUNCTION fn_transicao_valida(p_de TEXT, p_para TEXT)
+    RETURNS BOOLEAN IMMUTABLE LANGUAGE sql AS $fn$
+      SELECT CASE
+        -- escalar é sempre permitido a partir de qualquer estado vivo: o bot
+        -- desistir nunca pode ser bloqueado por regra de fluxo.
+        WHEN p_para = 'escalado_humano'
+             AND p_de NOT IN ('realizada','no_show','cancelada','expirada','remarcada')
+          THEN true
+        ELSE CASE p_de
+          -- terminais: sem saída (invariante 3 da spec do bot)
+          WHEN 'realizada'  THEN false
+          WHEN 'no_show'    THEN false
+          WHEN 'cancelada'  THEN false
+          WHEN 'expirada'   THEN false
+          WHEN 'remarcada'  THEN false
+          -- recusada é terminal PARA O AGENDAMENTO: a vaga segue em ofertas_vaga,
+          -- não reaproveitando a mesma linha.
+          WHEN 'recusada'   THEN false
+          WHEN 'reservada'  THEN p_para IN ('confirmada','cancelada','expirada','recusada')
+          WHEN 'agendada'   THEN p_para IN ('confirmada','cancelada','remarcada','recusada','sem_resposta')
+          WHEN 'confirmada' THEN p_para IN ('realizada','no_show','cancelada','remarcada')
+          -- silêncio não é fim: o paciente pode responder depois do H-1.
+          WHEN 'sem_resposta' THEN p_para IN ('confirmada','cancelada','remarcada','no_show','recusada')
+          -- volta da fila humana: alguém resolveu e o fluxo continua.
+          WHEN 'escalado_humano' THEN p_para IN ('confirmada','cancelada','remarcada','recusada','agendada')
+          ELSE false
+        END
+      END;
+    $fn$;
+  END IF;
+END $$;
+
 DO $$ BEGIN ALTER TYPE tipo_evento ADD VALUE IF NOT EXISTS 'recusado';     EXCEPTION WHEN undefined_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TYPE tipo_evento ADD VALUE IF NOT EXISTS 'sem_resposta'; EXCEPTION WHEN undefined_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TYPE tipo_evento ADD VALUE IF NOT EXISTS 'escalado';     EXCEPTION WHEN undefined_object THEN NULL; END $$;

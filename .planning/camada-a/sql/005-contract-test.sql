@@ -90,9 +90,24 @@ BEGIN
     RAISE EXCEPTION 'FALHA(5c): escalada não gerou evento no livro-razão';
   END IF;
 
-  -- (6) estados novos aceitos pelo CHECK --------------------------------------
-  UPDATE agendamentos_sofia_demo SET status = 'recusada'     WHERE id = v_agend;
+  -- (6) estados novos: CHECK **e** máquina de transições ----------------------
+  --     Estar no CHECK não basta — bot-agendamento/002 impõe fn_transicao_valida
+  --     por trigger. Este bloco só passou a existir depois de a aplicação em
+  --     produção revelar que os três estados eram inalcançáveis.
+  IF fn_transicao_valida('agendada','recusada')          IS NOT TRUE THEN RAISE EXCEPTION 'FALHA(6a): agendada -> recusada bloqueada'; END IF;
+  IF fn_transicao_valida('agendada','sem_resposta')      IS NOT TRUE THEN RAISE EXCEPTION 'FALHA(6b): agendada -> sem_resposta bloqueada'; END IF;
+  IF fn_transicao_valida('sem_resposta','confirmada')    IS NOT TRUE THEN RAISE EXCEPTION 'FALHA(6c): silêncio deveria admitir resposta tardia'; END IF;
+  -- escalar sempre pode: o bot desistir não pode ser bloqueado por regra de fluxo
+  IF fn_transicao_valida('confirmada','escalado_humano') IS NOT TRUE THEN RAISE EXCEPTION 'FALHA(6d): escalada bloqueada a partir de confirmada'; END IF;
+  -- e escalado_humano NÃO pode ser beco sem saída
+  IF fn_transicao_valida('escalado_humano','cancelada')  IS NOT TRUE THEN RAISE EXCEPTION 'FALHA(6e): escalado_humano virou beco sem saída'; END IF;
+  -- terminais continuam terminais
+  IF fn_transicao_valida('realizada','recusada')         IS NOT FALSE THEN RAISE EXCEPTION 'FALHA(6f): terminal deixou de ser terminal'; END IF;
+
+  -- e o caminho real, pelo trigger (não só pela função)
+  UPDATE agendamentos_sofia_demo SET status = 'agendada'     WHERE id = v_agend;
   UPDATE agendamentos_sofia_demo SET status = 'sem_resposta' WHERE id = v_agend;
+  UPDATE agendamentos_sofia_demo SET status = 'recusada'     WHERE id = v_agend;
 
   -- (7) TEMPLATE: só uma versão ativa por chave -------------------------------
   INSERT INTO templates (clinica_id, chave, versao, corpo)

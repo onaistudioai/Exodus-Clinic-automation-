@@ -45,6 +45,10 @@ const BASE = [
   PLAN("reativacao", "sql", "004-consentimento.sql"),
   PLAN("reativacao", "sql", "007-escalonamentos.sql"),
   PLAN("bot-agendamento", "sql", "001-bot-agendamento.sql"),
+  // 002 instala a maquina de transicoes (fn_transicao_valida + trigger). Omiti-la
+  // aqui escondeu, ate 2026-09-01, que os estados novos da camada-a ficavam
+  // inalcancaveis em producao. Base incompleta = teste que passa mentindo.
+  PLAN("bot-agendamento", "sql", "002-reserva-expiracao.sql"),
   PLAN("camada-a", "sql", "001-catraca.sql"),
   PLAN("camada-a", "sql", "002-estados-e-payload.sql"),
   PLAN("camada-a", "sql", "003-lead.sql"),
