@@ -15,17 +15,9 @@ import type {
   Profissional,
   Servico,
   SlotLivre,
-  StatusAgendamento,
 } from "@/types/domain";
+import { STATUS_ROTULO, STATUS_DESCONHECIDO } from "@/lib/status-agendamento";
 
-const STATUS: Record<StatusAgendamento, { txt: string; cls: string }> = {
-  pendente: { txt: "Pendente", cls: "bg-neutral-100 text-neutral-600" },
-  confirmada: { txt: "Confirmada", cls: "bg-sky-50 text-sky-700" },
-  remarcacao_pendente: { txt: "Remarcar", cls: "bg-amber-50 text-amber-700" },
-  realizada: { txt: "Realizada", cls: "bg-emerald-50 text-emerald-700" },
-  no_show: { txt: "No-show", cls: "bg-red-50 text-red-700" },
-  cancelada: { txt: "Cancelada", cls: "bg-neutral-100 text-neutral-400 line-through" },
-};
 
 export default function GerenciarAgenda({
   dia,
@@ -129,7 +121,7 @@ export default function GerenciarAgenda({
 
 function LinhaAgendamento({ a, podeGerir }: { a: AgendamentoDia; podeGerir: boolean }) {
   const [aberto, setAberto] = useState(false);
-  const s = STATUS[a.status];
+  const s = STATUS_ROTULO[a.status] ?? STATUS_DESCONHECIDO;
   return (
     <div className="px-4 py-2.5 text-sm">
       <div className="flex items-center justify-between gap-2">

@@ -58,13 +58,11 @@ export interface NovoResponsavel {
 }
 
 // ---- Agendamentos ----
-export type StatusAgendamento =
-  | "pendente"
-  | "confirmada"
-  | "cancelada"
-  | "remarcacao_pendente"
-  | "realizada"
-  | "no_show";
+// A união mora em lib/status-agendamento.ts (fonte única, comparada com o CHECK
+// do banco por tests/integration/schema-contract.test.ts). Aqui só reexporta,
+// para não voltar a existir duas listas que divergem em silêncio.
+import type { StatusAgendamento } from "@/lib/status-agendamento";
+export type { StatusAgendamento };
 
 export interface AgendamentoResumo {
   id: number;
