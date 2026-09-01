@@ -87,7 +87,12 @@ passos.push(
   // propósito: se aquela migração não aplicou, um banco sem os direitos do
   // titular tem de fazer barulho aqui, não descobrir no primeiro pedido real.
   [".planning/seguranca/005-titular.sql", false, PAINEL],
-  [".planning/seguranca/001-lockdown.sql", false, PAINEL]
+  [".planning/seguranca/001-lockdown.sql", false, PAINEL],
+  // POR ÚLTIMO, e o "último" é o ponto: 004 acima faz
+  // `GRANT SELECT, INSERT, UPDATE ON ALL TABLES ... TO app_painel`, o que desfaz
+  // o REVOKE que camada-a-v2/007 e /008 aplicam nas tabelas de regra. Sem esta
+  // linha, o deploy real reabre a escalada de privilégio que o teste não vê.
+  [".planning/seguranca/007-fonte-da-verdade-somente-leitura.sql", false, PAINEL]
 );
 
 const client = new pg.Client({

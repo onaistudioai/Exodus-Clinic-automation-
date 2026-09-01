@@ -56,11 +56,35 @@ const BASE = [
   PLAN("camada-a-v2", "sql", "001-guardrail.sql"),
   PLAN("camada-a-v2", "sql", "002-destino-escalada.sql"),
   PLAN("camada-a-v2", "sql", "003-fila-reversa.sql"),
+  // A pasta seguranca/ e o wrapper de tenant ficavam FORA da base: o CI montava
+  // um schema sem as funcoes de seguranca e sem fn_por_clinica, entao os testes
+  // que as cobrem nao tinham onde rodar. Mesma causa do comentario acima.
+  PLAN("camada-a-v2", "sql", "005-tenant-de-job.sql"),
+  // 007 e 008: fonte unica de estados e inventario de alcance. 008 depende de
+  // fn_tenant_atual (005) e das funcoes de expurgo que ele converte p/ INVOKER.
+  PLAN("camada-a-v2", "sql", "007-estados-fonte-unica.sql"),
+  PLAN("camada-a-v2", "sql", "008-inventario-alcance.sql"),
+  // A cauda de seguranca vai POR ULTIMO e na MESMA ORDEM de verify.mjs. Nao e
+  // detalhe: 004 faz `GRANT SELECT, INSERT, UPDATE ON ALL TABLES TO app_painel`,
+  // desfazendo o REVOKE das tabelas de regra feito em v2/007 e /008. Por isso
+  // seguranca/007 vem depois de tudo. Montar o teste em outra ordem produz um
+  // schema mais permissivo que o de producao — pior que nao testar.
+  PLAN("seguranca", "004-auth-e-grants.sql"),
+  PLAN("seguranca", "003-rate-limit.sql"),
+  PLAN("seguranca", "005-titular.sql"),
+  PLAN("seguranca", "001-lockdown.sql"),
+  PLAN("seguranca", "007-fonte-da-verdade-somente-leitura.sql"),
 ];
 
 const CONTRACT_TESTS = [
   PLAN("camada-a", "sql", "005-contract-test.sql"),
   PLAN("camada-a-v2", "sql", "004-contract-test.sql"),
+  // orfaos ate 2026-09-01: existiam no repo e nunca rodavam no CI.
+  PLAN("bot-agendamento", "sql", "002-contract-test.sql"),
+  PLAN("seguranca", "002-contract-test.sql"),
+  PLAN("seguranca", "006-contract-test-titular.sql"),
+  PLAN("camada-a-v2", "sql", "006-contract-test-tenant.sql"),
+  PLAN("camada-a-v2", "sql", "009-contract-test-fonte-unica.sql"),
 ];
 
 const client = new pg.Client({ connectionString: URL });

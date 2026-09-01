@@ -191,10 +191,18 @@ BEGIN
 
   -- (b) Titulares que pediram eliminação E cujo prazo legal já venceu.
   --
-  --     PRECISA percorrer clínica por clínica setando o GUC: as tabelas têm
-  --     FORCE ROW LEVEL SECURITY, e FORCE vale até para o dono — o SECURITY
-  --     DEFINER não escapa da policy. Sem set_config, o DELETE veria 0 linhas e
-  --     o job "passaria" sem expurgar nada. Fail-closed cobra esse preço.
+  --     Percorre clínica por clínica setando o GUC.
+  --
+  --     CORRIGIDO 2026-09-01: a nota anterior dizia "FORCE vale até para o dono,
+  --     logo o SECURITY DEFINER não escapa da policy". Era verdade no Postgres
+  --     da Railway, onde o dono não tinha bypass. NESTE banco é o contrário —
+  --     `neondb_owner` tem rolbypassrls=true, e BYPASSRLS vence FORCE (medido em
+  --     camada-a-v2/005-tenant-de-job.sql:4-12). Ou seja: sem o loop o DELETE
+  --     NÃO veria 0 linhas, veria TODAS as clínicas de uma vez. O loop continua
+  --     certo; a razão dele era a oposta da que estava escrita aqui.
+  --
+  --     Esta função é declarada `cross_tenant` em funcao_alcance (v2/008) — é
+  --     varredura assumida, não definer disfarçado de job por tenant.
   FOR c IN SELECT id FROM clinicas LOOP
     PERFORM set_config('app.clinica_id', c::text, true);
 
