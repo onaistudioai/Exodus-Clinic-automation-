@@ -50,12 +50,19 @@ BEGIN
     IF SQLERRM LIKE 'FALHA(%' THEN RAISE; END IF;  -- a recusa é o esperado
   END;
 
-  -- (7) função inexistente também é recusada
+  -- (7) função inexistente também é recusada.
+  --
+  -- SQLSTATE mudou em 2026-09-01 (camada-a-v2/008-inventario-alcance.sql): o
+  -- gate deixou de ser "existe em pg_proc?" (RAISE EXCEPTION genérico) e virou
+  -- "está no inventário funcao_alcance?" (ERRCODE insufficient_privilege,
+  -- deliberado — é rejeição de autorização, não de sintaxe, e a mesma classe
+  -- que 009-contract-test-fonte-unica.sql já prova para 'pg_sleep'). Achado
+  -- rodando este arquivo pela primeira vez via test-db.mjs — antes de hoje ele
+  -- não estava no CI e o desalinhamento não aparecia.
   BEGIN
     PERFORM fn_por_clinica('fn_que_nao_existe');
     RAISE EXCEPTION 'FALHA(7): funcao inexistente foi aceita';
-  EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM LIKE 'FALHA(%' THEN RAISE; END IF;
+  EXCEPTION WHEN insufficient_privilege THEN NULL;  -- esperado
   END;
 
   RAISE NOTICE 'OK: wrapper de tenant — 7 garantias provadas.';

@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { construirPassosDosModulos } from "./schema-modulos.mjs";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const RAIZ = path.resolve(AQUI, "../../..");
@@ -22,9 +23,8 @@ if (!url) {
   process.exit(1);
 }
 
-// Passos: [caminho, tolerante]. Tolerante = falha não interrompe (arquivo pode
-// depender de objeto criado direto em produção, que é justamente o que estamos
-// mapeando ao reconstruir do zero).
+// Passos: [caminho, base]. Tolerância deixou de ser campo posicional — vem só
+// de LACUNAS_CONHECIDAS, mais abaixo (ver comentário ali para o motivo).
 // `clinicas` inline em vez de aplicar sql/schema-consultas.sql inteiro.
 //
 // ACHADO: aquele arquivo é o schema da era demo e define `pacientes` com
@@ -44,116 +44,49 @@ CREATE TABLE IF NOT EXISTS clinicas (
   criado_em     TIMESTAMPTZ DEFAULT NOW()
 );`;
 
+// O 2º elemento de cada tripla era um booleano de tolerância lido diretamente
+// aqui. Desde 2026-09-01 (dae20bf) `aplicar()` ignora essa posição e só tolera
+// pelo allowlist `LACUNAS_CONHECIDAS` — por isso as triplas abaixo não carregam
+// mais `true`/`false` residual: era código morto, e um `true` esquecido aqui
+// mascarava exatamente o tipo de silêncio que a correção existe para eliminar.
 const passos = [
   // roles ANTES do schema: todo 001-*.sql de modulo termina com GRANT TO app_painel.
-  ['.planning/seguranca/000-roles.sql', false, PAINEL],
+  ['.planning/seguranca/000-roles.sql', PAINEL],
   // bella cria agendamentos_sofia_demo; f02 depois adiciona clinica_id nela.
-  ["sofia-demo/sql/schema-agendamentos-bella.sql", true, RAIZ],
-  ["sofia-demo/sql/migration-f02-multitenant.sql", true, RAIZ],
-  ["sofia-demo/sql/DRAFT-prontuario-modelo.sql", false, RAIZ],
+  // Ambos IF NOT EXISTS / IF NOT EXISTS-guarded; provados limpos (sem ⚠) nas
+  // 4 rodadas de 2026-09-01 — não têm razão documentada para tolerância.
+  ["sofia-demo/sql/schema-agendamentos-bella.sql", RAIZ],
+  ["sofia-demo/sql/migration-f02-multitenant.sql", RAIZ],
+  ["sofia-demo/sql/DRAFT-prontuario-modelo.sql", RAIZ],
 ];
 
-// TODAS as migrações numeradas de cada módulo, em ordem numérica — não só as 001.
-//
-// ACHADO (2026-08-06): filtrar por /^001-/ deixava de fora
-// `reativacao/004-consentimento.sql` (que cria registrar_consentimento,
-// consentimento_eventos e a coluna marketing_optin), `007-escalonamentos.sql` e
-// `estoque/004-falhas-fixes.sql`. O banco resultante subia "verde" e só quebrava
-// em uso: fn_titular_eliminar chama registrar_consentimento, e a página de
-// conformidade declarava metade das seções como não migradas.
-//
-// O que NÃO é migração e por isso fica de fora:
-//   contract-test / prove / verify -> asserção, roda depois e cria dado de teste
-//   seed                           -> dado de exemplo com clinica_id fixo
-//   preflight                      -> checagem read-only de pré-requisito
-const NAO_E_MIGRACAO = /contract-test|prove|verify|seed|preflight/;
-
-// ORDEM EXPLÍCITA DOS MÓDULOS.
-//
-// ACHADO (2026-09-01): a ordem era a do `readdir`, isto é, alfabética por acaso.
-// `reativacao` caía por último, mas `reativacao/004-consentimento` cria
-// `marketing_optin` e `007-escalonamentos` cria a tabela `escalonamentos` — dos
-// quais `camada-a/003-lead` e `camada-a-v2/001-guardrail`/`002-destino-escalada`
-// dependem. Numa instalação NOVA, quatro migrações falhavam e o runner terminava
-// com exit 0. Na SEGUNDA execução elas passavam, porque as dependências já
-// existiam: um instalador que só produz schema completo se rodar duas vezes.
-//
-// Por isso a ordem é declarada, e não parcial: declarar metade e deixar metade
-// alfabética recria o mesmo acidente na fronteira entre as duas.
-const ORDEM_MODULOS = [
-  "agenda-turnos",   // só depende do prelúdio
-  "reativacao",      // ANTES de camada-a: cria marketing_optin (004) e escalonamentos (007)
-  "bot-agendamento", // cria eventos_agendamento e notificacoes_saida, que camada-a altera
-  "camada-a",        // 003-lead precisa de marketing_optin; 004-telemetria precisa de origem (003)
-  "camada-a-v2",     // guardrail e destino-escalada precisam de escalonamentos
-  "crm",
-  "estoque",
-  "financeiro",
-  "prontuario",
-];
-
-const modulosComSql = fs
-  .readdirSync(path.join(PAINEL, ".planning"))
-  .filter((d) => fs.existsSync(path.join(PAINEL, ".planning", d, "sql")));
-
-// Módulo novo tem de declarar sua posição. Sem isto, o próximo módulo criado
-// voltaria a entrar na ordem alfabética em silêncio — o defeito de novo.
-const semPosicao = modulosComSql.filter((d) => !ORDEM_MODULOS.includes(d));
-if (semPosicao.length) {
-  console.error(
-    `\n❌ módulo(s) sem posição declarada em ORDEM_MODULOS: ${semPosicao.join(", ")}` +
-      `\n   Acrescente cada um na posição correta e diga de que ele depende.`
-  );
-  process.exit(1);
-}
-
-const ignorados = [];
-const malNumerados = [];
-
-for (const dir of ORDEM_MODULOS) {
-  if (!modulosComSql.includes(dir)) continue;
-  const sqlDir = path.join(PAINEL, ".planning", dir, "sql");
-  const todos = fs.readdirSync(sqlDir).filter((f) => f.endsWith(".sql"));
-  const migracoes = todos
-    .filter((f) => /^\d{3}-.*\.sql$/.test(f) && !NAO_E_MIGRACAO.test(f))
-    .sort(); // intra-módulo o prefixo NNN- É a declaração de ordem
-  for (const f of migracoes) {
-    passos.push([path.join(".planning", dir, "sql", f), false, PAINEL]);
-  }
-  // Terceiro furo da mesma família: arquivo que EXISTE no disco e nunca é
-  // aplicado nem mencionado. O runner não distinguia "não é migração" de
-  // "deveria ser e ninguém percebeu". Agora todo .sql é classificado.
-  for (const f of todos) {
-    if (migracoes.includes(f) || NAO_E_MIGRACAO.test(f)) continue;
-    // `01-foo.sql` ou `1-foo.sql`: parece migração e nunca rodaria, porque o
-    // filtro exige três dígitos. É erro de numeração, não rascunho.
-    if (/^\d{1,2}-/.test(f)) malNumerados.push(`${dir}/sql/${f}`);
-    else ignorados.push(`${dir}/sql/${f}`);
-  }
-}
-
-if (malNumerados.length) {
-  console.error(
-    `\n❌ arquivo(s) com numeração inválida — parecem migração e nunca rodariam:` +
-      malNumerados.map((f) => `\n   - ${f}`).join("") +
-      `\n   O prefixo tem de ter três dígitos (001-, 002-, ...).`
-  );
+// ORDEM_MODULOS e a descoberta de migração por módulo vivem em
+// schema-modulos.mjs — FONTE ÚNICA compartilhada com scripts/test-db.mjs. Ver
+// aquele arquivo para o histórico completo do defeito de ordem (2026-09-01).
+let ignorados;
+try {
+  const r = construirPassosDosModulos(PAINEL);
+  passos.push(...r.passos);
+  ignorados = r.ignorados;
+} catch (err) {
+  console.error(`
+❌ ${err.message}`);
   process.exit(1);
 }
 
 passos.push(
-  [".planning/seguranca/004-auth-e-grants.sql", false, PAINEL],
-  [".planning/seguranca/003-rate-limit.sql", false, PAINEL],
+  [".planning/seguranca/004-auth-e-grants.sql", PAINEL],
+  [".planning/seguranca/003-rate-limit.sql", PAINEL],
   // 005 depende de registrar_consentimento (reativacao/004). INTOLERANTE de
   // propósito: se aquela migração não aplicou, um banco sem os direitos do
   // titular tem de fazer barulho aqui, não descobrir no primeiro pedido real.
-  [".planning/seguranca/005-titular.sql", false, PAINEL],
-  [".planning/seguranca/001-lockdown.sql", false, PAINEL],
+  [".planning/seguranca/005-titular.sql", PAINEL],
+  [".planning/seguranca/001-lockdown.sql", PAINEL],
   // POR ÚLTIMO, e o "último" é o ponto: 004 acima faz
   // `GRANT SELECT, INSERT, UPDATE ON ALL TABLES ... TO app_painel`, o que desfaz
   // o REVOKE que camada-a-v2/007 e /008 aplicam nas tabelas de regra. Sem esta
   // linha, o deploy real reabre a escalada de privilégio que o teste não vê.
-  [".planning/seguranca/007-fonte-da-verdade-somente-leitura.sql", false, PAINEL]
+  [".planning/seguranca/007-fonte-da-verdade-somente-leitura.sql", PAINEL]
 );
 
 const client = new pg.Client({
@@ -192,10 +125,11 @@ const LACUNAS_CONHECIDAS = new Map([
 
 const falhas = [];
 
-async function aplicar([rel, _tol, base]) {
+async function aplicar([rel, base]) {
   const abs = path.join(base, rel);
   const nome = path.basename(rel);
-  // `tolerante` vem da allowlist, nunca da posição na lista.
+  // `tolerante` vem SÓ da allowlist — não existe mais posição na tripla para
+  // isso. Ver comentário acima de `passos`.
   const tolerante = LACUNAS_CONHECIDAS.has(nome);
   if (!fs.existsSync(abs)) {
     // Arquivo ausente ANTES nem entrava em `falhas`: sumia do rodapé e do exit

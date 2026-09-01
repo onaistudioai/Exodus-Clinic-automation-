@@ -94,6 +94,12 @@ BEGIN
     SELECT v_clinica, id, 'wamid.V11', 'entrada', 'meu nome é Fulano, cpf 000',
            NOW() - INTERVAL '400 day' FROM contatos_whatsapp WHERE chat_id = 'v11@c.us';
 
+  -- fn_expurgo_mensagens virou SECURITY INVOKER por tenant em 2026-09-01
+  -- (camada-a-v2/008-inventario-alcance.sql — era DEFINER e varria TODAS as
+  -- clínicas de uma vez, achado medido em produção). Sem o GUC, ela agora
+  -- levanta exceção em vez de rodar cross-tenant; este teste precisa declarar
+  -- o tenant, como qualquer chamador real passaria a fazer.
+  PERFORM set_config('app.clinica_id', v_clinica::text, true);
   SELECT fn_expurgo_mensagens(180) INTO v_n;
   IF v_n <> 1 THEN RAISE EXCEPTION 'FALHA(11): expurgo tocou % linhas, esperado 1', v_n; END IF;
   SELECT fn_expurgo_mensagens(180) INTO v_n;
