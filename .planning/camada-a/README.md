@@ -36,9 +36,15 @@ de `DRAFT-prontuario-modelo.sql`. Aplicar o arquivo inteiro quebra tudo — só 
 
 ## Estado da verificação
 
-Rodado em 2026-08-31 contra o branch Neon `camada-a-test`
-(`br-calm-lake-ay9oqjvp`, projeto `super-wildflower-31318091`): as 11 garantias
-passam, e as 4 migrações são idempotentes (aplicadas 3× seguidas sem erro).
+Rodado em 2026-08-31 contra o branch Neon descartável `camada-a-test`
+(`br-calm-lake-ay9oqjvp`): as 11 garantias passam, e as 4 migrações são
+idempotentes (aplicadas 3× seguidas sem erro).
+
+⚠️ Esse branch saiu do projeto `super-wildflower-31318091`, que estava
+**deprecado** — o `.neon` do repo apontava para lá. O banco em uso é
+`exodus-br` / `steep-scene-78058640` (São Paulo, PG 18). A prova continua
+valendo (o schema foi montado do zero, independe de projeto), mas **estas
+migrações ainda NÃO foram aplicadas no `exodus-br`**.
 
 Dois bugs foram encontrados PELO teste e corrigidos:
 
