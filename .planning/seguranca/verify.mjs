@@ -68,16 +68,77 @@ const passos = [
 //   preflight                      -> checagem read-only de pré-requisito
 const NAO_E_MIGRACAO = /contract-test|prove|verify|seed|preflight/;
 
-for (const dir of fs.readdirSync(path.join(PAINEL, ".planning"))) {
+// ORDEM EXPLÍCITA DOS MÓDULOS.
+//
+// ACHADO (2026-09-01): a ordem era a do `readdir`, isto é, alfabética por acaso.
+// `reativacao` caía por último, mas `reativacao/004-consentimento` cria
+// `marketing_optin` e `007-escalonamentos` cria a tabela `escalonamentos` — dos
+// quais `camada-a/003-lead` e `camada-a-v2/001-guardrail`/`002-destino-escalada`
+// dependem. Numa instalação NOVA, quatro migrações falhavam e o runner terminava
+// com exit 0. Na SEGUNDA execução elas passavam, porque as dependências já
+// existiam: um instalador que só produz schema completo se rodar duas vezes.
+//
+// Por isso a ordem é declarada, e não parcial: declarar metade e deixar metade
+// alfabética recria o mesmo acidente na fronteira entre as duas.
+const ORDEM_MODULOS = [
+  "agenda-turnos",   // só depende do prelúdio
+  "reativacao",      // ANTES de camada-a: cria marketing_optin (004) e escalonamentos (007)
+  "bot-agendamento", // cria eventos_agendamento e notificacoes_saida, que camada-a altera
+  "camada-a",        // 003-lead precisa de marketing_optin; 004-telemetria precisa de origem (003)
+  "camada-a-v2",     // guardrail e destino-escalada precisam de escalonamentos
+  "crm",
+  "estoque",
+  "financeiro",
+  "prontuario",
+];
+
+const modulosComSql = fs
+  .readdirSync(path.join(PAINEL, ".planning"))
+  .filter((d) => fs.existsSync(path.join(PAINEL, ".planning", d, "sql")));
+
+// Módulo novo tem de declarar sua posição. Sem isto, o próximo módulo criado
+// voltaria a entrar na ordem alfabética em silêncio — o defeito de novo.
+const semPosicao = modulosComSql.filter((d) => !ORDEM_MODULOS.includes(d));
+if (semPosicao.length) {
+  console.error(
+    `\n❌ módulo(s) sem posição declarada em ORDEM_MODULOS: ${semPosicao.join(", ")}` +
+      `\n   Acrescente cada um na posição correta e diga de que ele depende.`
+  );
+  process.exit(1);
+}
+
+const ignorados = [];
+const malNumerados = [];
+
+for (const dir of ORDEM_MODULOS) {
+  if (!modulosComSql.includes(dir)) continue;
   const sqlDir = path.join(PAINEL, ".planning", dir, "sql");
-  if (!fs.existsSync(sqlDir)) continue;
-  const migracoes = fs
-    .readdirSync(sqlDir)
+  const todos = fs.readdirSync(sqlDir).filter((f) => f.endsWith(".sql"));
+  const migracoes = todos
     .filter((f) => /^\d{3}-.*\.sql$/.test(f) && !NAO_E_MIGRACAO.test(f))
-    .sort();
+    .sort(); // intra-módulo o prefixo NNN- É a declaração de ordem
   for (const f of migracoes) {
-    passos.push([path.join(".planning", dir, "sql", f), true, PAINEL]);
+    passos.push([path.join(".planning", dir, "sql", f), false, PAINEL]);
   }
+  // Terceiro furo da mesma família: arquivo que EXISTE no disco e nunca é
+  // aplicado nem mencionado. O runner não distinguia "não é migração" de
+  // "deveria ser e ninguém percebeu". Agora todo .sql é classificado.
+  for (const f of todos) {
+    if (migracoes.includes(f) || NAO_E_MIGRACAO.test(f)) continue;
+    // `01-foo.sql` ou `1-foo.sql`: parece migração e nunca rodaria, porque o
+    // filtro exige três dígitos. É erro de numeração, não rascunho.
+    if (/^\d{1,2}-/.test(f)) malNumerados.push(`${dir}/sql/${f}`);
+    else ignorados.push(`${dir}/sql/${f}`);
+  }
+}
+
+if (malNumerados.length) {
+  console.error(
+    `\n❌ arquivo(s) com numeração inválida — parecem migração e nunca rodariam:` +
+      malNumerados.map((f) => `\n   - ${f}`).join("") +
+      `\n   O prefixo tem de ter três dígitos (001-, 002-, ...).`
+  );
+  process.exit(1);
 }
 
 passos.push(
@@ -107,13 +168,40 @@ client.on("notice", (n) => {
   console.log(`${tag} ${n.message}`);
 });
 
+// LACUNAS CONHECIDAS — allowlist explícita, uma entrada por arquivo, com motivo.
+//
+// ACHADO (2026-09-01): antes, TODA migração de módulo entrava como `tolerante`,
+// e o rodapé chamava qualquer falha de "lacuna do que nunca foi versionado".
+// A categoria era larga demais e absorveu quatro arquivos que existiam, estavam
+// corretos e só rodavam fora de ordem — lidos como esperados por isso.
+// Agora tolerar é decisão declarada arquivo a arquivo. Conjunto vazio = nada
+// tolerado, que é o estado correto hoje.
+//
+// O QUE QUALIFICA UMA LACUNA REAL — leia antes de acrescentar entrada:
+//   ✓ o arquivo depende de algo que NUNCA foi versionado (tabela criada à mão em
+//     produção e nunca escrita em .sql), e há um plano de versionar;
+//   ✓ o arquivo é de um módulo deliberadamente não instalado neste ambiente.
+//   ✗ "não está aplicando e eu preciso do CI verde" NÃO qualifica;
+//   ✗ falha por ordem entre módulos NÃO qualifica — conserte a ORDEM_MODULOS;
+//   ✗ dependência que existe no repo mas roda depois NÃO qualifica — é ordem.
+// O motivo escrito aqui é a única coisa que impede este Map de voltar a ser o
+// balde genérico que escondeu o defeito de ordem por semanas.
+const LACUNAS_CONHECIDAS = new Map([
+  // "nome-do-arquivo.sql" => "por que esta lacuna é aceitável"
+]);
+
 const falhas = [];
 
-async function aplicar([rel, tolerante, base]) {
+async function aplicar([rel, _tol, base]) {
   const abs = path.join(base, rel);
   const nome = path.basename(rel);
+  // `tolerante` vem da allowlist, nunca da posição na lista.
+  const tolerante = LACUNAS_CONHECIDAS.has(nome);
   if (!fs.existsSync(abs)) {
+    // Arquivo ausente ANTES nem entrava em `falhas`: sumia do rodapé e do exit
+    // code. Some da lista de passos alguém apagar um .sql e o runner aplaudia.
     console.log(`  ⚠ ausente: ${nome}`);
+    falhas.push(`${nome}: arquivo ausente`);
     return;
   }
   try {
@@ -181,8 +269,28 @@ try {
   console.log("✅ nenhuma asserção falhou.");
 
   if (falhas.length) {
-    console.log(`\n⚠️  ${falhas.length} arquivo(s) não aplicaram — lacunas do que nunca foi versionado:`);
+    // DERRUBA O EXIT CODE. Antes isto era só um aviso e o processo saía 0 — o
+    // que contradizia em silêncio o critério de conclusão do PROJECT_SPEC §1
+    // ("sem arquivo em ⚠ ausente ou falha tolerada") e tornava invisível o
+    // defeito de ordem que existia há semanas.
+    console.log(`\n❌ ${falhas.length} arquivo(s) não aplicaram:`);
     for (const f of falhas) console.log(`   - ${f}`);
+    console.log(
+      `\n   Schema INCOMPLETO. Se alguma destas é lacuna real e aceitável,` +
+        `\n   declare em LACUNAS_CONHECIDAS com o motivo — nunca em silêncio.`
+    );
+    process.exitCode = 1;
+  } else {
+    console.log("\n✅ schema completo: nenhum arquivo pulado.");
+  }
+
+  if (ignorados.length) {
+    console.log(
+      `\nℹ️  ${ignorados.length} .sql não são migração e não foram aplicados` +
+        ` (rascunho, inspeção, cleanup):`
+    );
+    for (const f of ignorados) console.log(`   · ${f}`);
+    console.log("   Listados de propósito: antes sumiam sem deixar rastro.");
   }
 } catch (err) {
   console.error(`\n❌ ${err.message}`);
