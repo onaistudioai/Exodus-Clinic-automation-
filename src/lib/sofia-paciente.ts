@@ -7,6 +7,7 @@ import {
   confirmarIdentidade,
   type PacienteIdentificado,
 } from "@/server/identidade.repo";
+import { freioIdentidadePg, type FreioIdentidade } from "@/server/freio-identidade.repo";
 
 /**
  * Passo de identidade compartilhado pelas rotas /api/sofia/* que tocam dado de
@@ -26,7 +27,8 @@ interface CorpoComIdentidade {
 
 export async function identificarPaciente(
   tx: Tx,
-  corpo: CorpoComIdentidade
+  corpo: CorpoComIdentidade,
+  freio: FreioIdentidade = freioIdentidadePg
 ): Promise<ResultadoIdentidade> {
   if (typeof corpo.telefone !== "string") {
     return {
@@ -55,6 +57,8 @@ export async function identificarPaciente(
   }
 
   if (typeof corpo.data_nascimento !== "string") {
+    // Fluxo normal, sem data ainda — não consulta nem conta o freio: senão o
+    // paciente legítimo se autobloqueia só de conversar.
     return {
       ok: false,
       resposta: NextResponse.json({
@@ -66,8 +70,25 @@ export async function identificarPaciente(
     };
   }
 
+  // Consulta em modo leitura, sem registrar: uma data foi enviada, então é
+  // aqui que o freio precisa valer — mas checar o estado atual não é, por si
+  // só, uma tentativa.
+  const espera = await freio.consultar(telefone);
+  if (espera > 0) {
+    return {
+      ok: false,
+      resposta: NextResponse.json({
+        identificado: true,
+        confirmado: false,
+        motivo: "muitas_tentativas",
+        espera_segundos: espera,
+      }),
+    };
+  }
+
   const confere = await confirmarIdentidade(tx, paciente.pacienteId, corpo.data_nascimento);
   if (!confere) {
+    await freio.registrar(telefone, false);
     return {
       ok: false,
       resposta: NextResponse.json({
@@ -78,5 +99,6 @@ export async function identificarPaciente(
     };
   }
 
+  await freio.registrar(telefone, true);
   return { ok: true, paciente };
 }

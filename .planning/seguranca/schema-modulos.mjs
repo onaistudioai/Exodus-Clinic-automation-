@@ -53,6 +53,9 @@ export const ORDEM_MODULOS = [
   "camada-a-v2",     // guardrail e destino-escalada precisam de escalonamentos
   "acesso",          // só precisa de `usuarios` (prelúdio); tem de existir ANTES
                      // de seguranca/007 poder trancar papel/acao/papel_acao
+  "identidade",      // freio de força bruta na confirmação de identidade
+                     // (identidade_tentativas + fn_identidade_freio). Não
+                     // depende de nada, nem `acesso` — a posição é só legibilidade.
   "crm",
   "estoque",
   "financeiro",

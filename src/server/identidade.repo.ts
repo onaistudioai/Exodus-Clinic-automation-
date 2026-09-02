@@ -72,8 +72,9 @@ export async function resolverPacientePorTelefone(
  * assim a data de nascimento nunca sai do banco por esta via. Um atacante que
  * chute errado recebe apenas `false`, sem nenhum dado de volta.
  *
- * ponytail: sem rate limit próprio ainda. A SOFIA deve encerrar a conversa após
- * 3 tentativas na mesma sessão; se virar vetor real, migrar o contador para cá.
+ * Freio de força bruta: não mora aqui, mora em freio-identidade.repo.ts,
+ * chamado pelo gate compartilhado em src/lib/sofia-paciente.ts
+ * (identificarPaciente). Esta função continua pura — só compara.
  */
 export async function confirmarIdentidade(
   tx: Tx,

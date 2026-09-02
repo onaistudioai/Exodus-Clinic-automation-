@@ -109,6 +109,16 @@ const CONTRACT_TESTS = [
   PLAN("estoque", "sql", "003-contract-test.sql"),
   PLAN("financeiro", "sql", "003-contract-test.sql"),
   PLAN("prontuario", "sql", "002-contract-test-prontuario.sql"),
+  // modulo `acesso` (2026-09-01, sessao par unify-chat-rbac-layer): 002 prova
+  // que a matriz migrada e identica ao literal que estava em rbac-matriz.ts;
+  // 003 prova que as tabelas de regra ficaram somente-leitura para app_painel
+  // depois da cauda de seguranca -- e por isso tem de rodar DEPOIS dela.
+  PLAN("acesso", "sql", "002-verify.sql"),
+  PLAN("acesso", "sql", "003-contract-test.sql"),
+  // freio de identidade WhatsApp (2026-09-01, `identidade.repo.ts`): prova a
+  // tabela fechada, o EXECUTE liberado, o bloqueio em 3 falhas e a liberação
+  // por sucesso — mesmo mecanismo de seguranca/002-contract-test.sql para login.
+  PLAN("identidade", "sql", "002-contract-test.sql"),
 ];
 
 const client = new pg.Client({ connectionString: URL });

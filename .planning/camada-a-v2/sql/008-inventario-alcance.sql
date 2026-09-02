@@ -55,7 +55,16 @@ INSERT INTO funcao_alcance (funcao, alcance, motivo) VALUES
   ('fn_login_tentativas_purgar', 'cross_tenant',
    'DELIBERADO: purga a mesma tabela sem tenant de fn_login_freio.'),
   ('fn_por_clinica',       'cross_tenant',
-   'E A PROPRIA varredura. Precisa enxergar a lista de clinicas.')
+   'E A PROPRIA varredura. Precisa enxergar a lista de clinicas.'),
+  -- .planning/identidade/sql/001-freio-identidade.sql (2026-09-01): mesmo
+  -- molde do freio de login. identidade_tentativas tambem nao tem clinica_id
+  -- por design (quem ataca e a mesma pessoa fisica em qualquer clinica).
+  ('fn_identidade_freio',            'cross_tenant',
+   'DELIBERADO: identidade_tentativas nao tem clinica_id por design (mesmo motivo de fn_login_freio).'),
+  ('fn_identidade_freio_consultar',  'cross_tenant',
+   'DELIBERADO: leitura da mesma tabela sem tenant de fn_identidade_freio.'),
+  ('fn_identidade_tentativas_purgar','cross_tenant',
+   'DELIBERADO: purga a mesma tabela sem tenant de fn_identidade_freio.')
 ON CONFLICT (funcao) DO UPDATE
   SET alcance = EXCLUDED.alcance, motivo = EXCLUDED.motivo;
 

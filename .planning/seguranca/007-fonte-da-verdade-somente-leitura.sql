@@ -96,6 +96,31 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- (c) TABELAS PRÉ-AUTENTICAÇÃO: REVOKE ALL, acesso só pela função DEFINER.
+--
+-- ACHADO (2026-09-01, ao ligar identidade/002-contract-test.sql pela primeira
+-- vez): identidade_tentativas nasce com `REVOKE ALL ... FROM app_painel` no
+-- próprio 001-freio-identidade.sql — mas esse arquivo roda DENTRO do loop de
+-- módulos, ANTES de seguranca/004. O `GRANT ... ON ALL TABLES` de 004 desfaz o
+-- REVOKE, mesmo defeito estrutural dos blocos (a)/(b) acima.
+--
+-- login_tentativas (003-rate-limit.sql) não sofre disto porque aquele arquivo
+-- já mora dentro da cauda de `seguranca/`, depois de 004 por posição. Uma
+-- tabela pré-autenticação criada por um MÓDULO (fora de seguranca/) precisa
+-- desta reafirmação tardia — é diferente de (a): aqui não sobra SELECT nenhum,
+-- só a função SECURITY DEFINER acessa.
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['identidade_tentativas']
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_class WHERE relname = t AND relkind = 'r') THEN
+      EXECUTE format('REVOKE ALL ON %I FROM PUBLIC, app_painel, app_n8n', t);
+    END IF;
+  END LOOP;
+END $$;
+
 -- O DEFAULT PRIVILEGES de 004 continua valendo para TODA tabela futura. Se um
 -- módulo novo criar outra tabela de regra, ela nasce gravável — acrescente o
 -- nome ao ARRAY do bloco (a). O contract-test 009 da camada-a-v2 falha se isto
