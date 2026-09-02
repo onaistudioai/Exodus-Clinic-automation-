@@ -163,12 +163,42 @@ export async function listarAcessos(tx: Tx, limite = 100): Promise<AcessoLog[]> 
   return rows;
 }
 
-/** Trilha de auditoria (TRAVA 3): toda leitura/escrita clínica registra. */
+/**
+ * Leitura RESUMIDA da trilha (admin, ver_auditoria) — sem `detalhe` (texto
+ * livre) e sem nomes. Para consumidores que não podem ver mais que
+ * identificador: o catálogo de ferramentas do chat, por exemplo. `detalhe`
+ * fica de fora aqui, não porque hoje contenha algo clínico (checado —
+ * carrega só "corrige #<id>" e frases fixas), mas porque §8 proíbe texto
+ * livre na trilha para QUEM a consulta, não só para quem a escreve.
+ */
+export interface AcessoResumo {
+  id: number;
+  usuario_id: number | null;
+  paciente_id: number | null;
+  entrada_id: number | null;
+  acao: string;
+  criado_em: string;
+}
+export async function listarAcessosResumo(tx: Tx, limite = 100): Promise<AcessoResumo[]> {
+  const { rows } = await tx.query<AcessoResumo>(
+    `SELECT id, usuario_id, paciente_id, entrada_id, acao,
+            to_char(criado_em,'YYYY-MM-DD"T"HH24:MI:SS') AS criado_em
+       FROM prontuario_acessos
+      ORDER BY criado_em DESC
+      LIMIT $1`,
+    [limite]
+  );
+  return rows;
+}
+
+/** Trilha de auditoria (TRAVA 3): toda leitura/escrita clínica registra.
+ * `pacienteId` aceita `null` — usado por eventos que não são sobre UM
+ * paciente específico, como "consultou a trilha" (ver_auditoria). */
 export async function registrarAcesso(
   tx: Tx,
   acao: AcaoAuditoria,
   usuarioId: number,
-  pacienteId: number,
+  pacienteId: number | null,
   entradaId: number | null,
   detalhe?: string
 ): Promise<void> {

@@ -11,6 +11,7 @@ import * as crm from "@/server/crm.repo";
 import type { EstagioCrm } from "@/types/domain";
 import * as reativacao from "@/server/reativacao.repo";
 import * as escalonamentos from "@/server/escalonamentos.repo";
+import * as prontuario from "@/server/prontuario.repo";
 
 /**
  * As ferramentas do chat. Cada uma é um invólucro fino sobre um repo que já
@@ -138,6 +139,20 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
     descricao: "Fila de atendimento humano: itens que a SOFIA encaminhou (sintoma clínico, dúvida, reclamação, pedido explícito) e ainda não foram resolvidos.",
     parametros: { type: "object", properties: {}, required: [] },
     executar: async (tx) => escalonamentos.listarFila(tx),
+  },
+
+  consultar_auditoria: {
+    acao: "ver_auditoria",
+    descricao:
+      "Trilha de quem acessou o prontuário: identificadores de usuário/paciente/entrada, tipo de ação e quando — nunca o conteúdo acessado.",
+    parametros: { type: "object", properties: {}, required: [] },
+    executar: async (tx, _a, ctx) => {
+      const acessos = await prontuario.listarAcessosResumo(tx);
+      // Ler a auditoria também gera entrada na auditoria (nota de demo-5c) —
+      // sem paciente/entrada específicos, é evento sobre a trilha em si.
+      await prontuario.registrarAcesso(tx, "leu", ctx.usuarioId, null, null);
+      return acessos;
+    },
   },
 
   // ------------------------------------------------- escrita sensível

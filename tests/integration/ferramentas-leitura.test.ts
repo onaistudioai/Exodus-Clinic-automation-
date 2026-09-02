@@ -37,6 +37,7 @@ let campanhaId: number;
 let escalonamentoId: number;
 let pacienteRetorno: number;
 let usuarioMedico: number;
+let acessoId: number;
 
 async function comoContexto(ctx: {
   clinica_id?: number;
@@ -98,6 +99,13 @@ before(async () => {
      VALUES ($1, $2, $3, true, 'nota')`,
     [clinicaA, pacienteRetorno, usuarioMedico]
   );
+
+  const acesso = await db.query<{ id: number }>(
+    `INSERT INTO prontuario_acessos (clinica_id, usuario_id, paciente_id, acao)
+     VALUES ($1, $2, $3, 'leu') RETURNING id`,
+    [clinicaA, usuarioMedico, pacienteRetorno]
+  );
+  acessoId = acesso.rows[0].id;
 });
 
 after(async () => {
@@ -153,4 +161,25 @@ test("consultar_crm: canal whatsapp não enxerga nada em v_prontuario_visivel", 
     [pacienteRetorno]
   );
   assert.equal(r.rows[0].count, "0", "a view é operacional do painel — canal whatsapp não tem o que fazer com metadado de prontuário");
+});
+
+// prontuario_acessos: ESTREITADA por acesso-013 (só tinha rls_tenant antes).
+// Só admin tem ver_auditoria — a linha existe (seed no before()), então isto
+// prova a policy, não tabela vazia por sorte.
+test("consultar_auditoria: recepção (papel sem ver_auditoria) não lê a trilha", { skip: SKIP }, async () => {
+  await comoContexto({ clinica_id: clinicaA, canal: "painel", papel: "recepcao" });
+  const r = await db.query("SELECT * FROM prontuario_acessos WHERE id = $1", [acessoId]);
+  assert.equal(r.rowCount, 0, "recepção não tem ver_auditoria — deveria negar");
+});
+
+test("consultar_auditoria: médico (papel sem ver_auditoria) não lê a trilha", { skip: SKIP }, async () => {
+  await comoContexto({ clinica_id: clinicaA, canal: "painel", papel: "medico" });
+  const r = await db.query("SELECT * FROM prontuario_acessos WHERE id = $1", [acessoId]);
+  assert.equal(r.rowCount, 0, "médico não tem ver_auditoria — deveria negar");
+});
+
+test("consultar_auditoria: admin lê a trilha", { skip: SKIP }, async () => {
+  await comoContexto({ clinica_id: clinicaA, canal: "painel", papel: "admin" });
+  const r = await db.query("SELECT * FROM prontuario_acessos WHERE id = $1", [acessoId]);
+  assert.equal(r.rowCount, 1, "admin tem ver_auditoria — deveria ver a linha");
 });
