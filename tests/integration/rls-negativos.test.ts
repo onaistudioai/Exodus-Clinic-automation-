@@ -179,6 +179,21 @@ test("1: médico A não lê entrada de prontuário do médico B", { skip: SKIP }
   assert.equal(r.rowCount, 0, "médico A não deveria ver a entrada — a linha existe (seed), então isto prova a policy, não tabela vazia");
 });
 
+// Decisão do usuário (relatada por demo-5c): admin mantém ler_texto_clinico,
+// mas com o MESMO estreitamento do médico — "quem tem a ação lê o que
+// atendeu", sem enumerar papel (acesso-010-prontuario-quem-atendeu.sql).
+// Admin não é o profissional_id da entrada ⇒ nega, igual ao teste 1.
+test("1b: admin que não atendeu não lê a entrada (mesmo estreitamento do médico)", { skip: SKIP }, async () => {
+  await comoContexto({
+    clinica_id: clinicaA,
+    canal: "painel",
+    papel: "admin",
+    usuario_id: usuarioAdmin,
+  });
+  const r = await db.query("SELECT * FROM prontuario_entradas WHERE id = $1", [entradaDeB]);
+  assert.equal(r.rowCount, 0, "admin com usuario_id diferente do profissional_id da entrada não deveria ver a linha");
+});
+
 // ---------------------------------------------------------------------------
 // 2 — Recepção lendo qualquer texto clínico.
 // ---------------------------------------------------------------------------

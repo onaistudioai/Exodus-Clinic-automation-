@@ -35,12 +35,34 @@ BEGIN
     RAISE EXCEPTION 'FALHA(4): job com tenant deveria rodar';
   END IF;
 
-  -- (5) a varredura declarada cobre TODAS as clínicas, uma por vez
+  -- (5) a varredura declarada cobre as clínicas ATIVAS, uma por vez — não mais
+  -- "todas": acesso-009-neutraliza-teste-e-fn-por-clinica.sql corrigiu um bug
+  -- latente (fn_por_clinica não filtrava `ativa`, então job por tenant varria
+  -- clínica desativada). Achado ao aplicar a correção, não intencional desde
+  -- o início — este arquivo tinha a asserção antiga (v_linhas = count(*) sem
+  -- filtro), que agora seria falso positivo do bug, não prova de correção.
   PERFORM set_config('app.clinica_id','',true);
   SELECT count(*) INTO v_linhas FROM fn_por_clinica('fn_expirar_ofertas');
-  IF v_linhas <> (SELECT count(*) FROM clinicas) THEN
-    RAISE EXCEPTION 'FALHA(5): varredura cobriu % de % clinicas', v_linhas, (SELECT count(*) FROM clinicas);
+  IF v_linhas <> (SELECT count(*) FROM clinicas WHERE ativa) THEN
+    RAISE EXCEPTION 'FALHA(5): varredura cobriu % de % clinicas ativas', v_linhas, (SELECT count(*) FROM clinicas WHERE ativa);
   END IF;
+
+  -- (5b) prova direta: uma clínica INATIVA, criada e revertida só dentro desta
+  -- transação (ROLLBACK no fim do arquivo cuida da limpeza), não aparece entre
+  -- os ids varridos.
+  DECLARE
+    v_clinica_inativa_id INTEGER;
+    v_apareceu BOOLEAN;
+  BEGIN
+    INSERT INTO clinicas (nome, ativa) VALUES ('[CONTRACT-TEST] inativa', false)
+      RETURNING id INTO v_clinica_inativa_id;
+    SELECT EXISTS (
+      SELECT 1 FROM fn_por_clinica('fn_expirar_ofertas') WHERE clinica_id = v_clinica_inativa_id
+    ) INTO v_apareceu;
+    IF v_apareceu THEN
+      RAISE EXCEPTION 'FALHA(5b): clinica inativa (id %) foi varrida por fn_por_clinica', v_clinica_inativa_id;
+    END IF;
+  END;
 
   -- (6) injeção no nome da função é recusada (a varredura é SECURITY DEFINER)
   BEGIN
