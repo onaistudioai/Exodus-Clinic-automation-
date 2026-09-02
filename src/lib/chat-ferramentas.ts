@@ -219,6 +219,61 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
     executar: async (tx, a) =>
       financeiro.cancelarCobranca(tx, n(a.cobrancaId), String(a.motivo)),
   },
+
+  // ------------------------------------------------- agenda: escrita direta
+  // Único módulo com escrita direta (não por proposta): as operações são
+  // reversíveis (spec §5.2). Reaproveita agenda.repo.ts — mesmas funções que
+  // o painel já usa em agenda/actions.ts sob gerir_agenda — nenhum caminho de
+  // anti-overbooking novo: criarAgendamento/remarcarAgendamento já dependem
+  // da constraint no_overbooking (EXCLUDE por GiST) e capturam 23P01.
+
+  criar_agendamento: {
+    acao: "gerir_agenda",
+    descricao: "Marca uma nova consulta para um paciente com um profissional, em um serviço e horário.",
+    parametros: {
+      type: "object",
+      properties: {
+        pacienteId: { type: "number", description: "Id do paciente" },
+        profissionalId: { type: "number", description: "Id do profissional" },
+        servicoId: { type: "number", description: "Id do serviço" },
+        inicio: { type: "string", description: "Início no formato ISO 8601 (ex: 2026-09-10T14:00:00-03:00)" },
+      },
+      required: ["pacienteId", "profissionalId", "servicoId", "inicio"],
+    },
+    executar: async (tx, a) =>
+      agenda.criarAgendamento(tx, {
+        pacienteId: n(a.pacienteId),
+        profissionalId: n(a.profissionalId),
+        servicoId: n(a.servicoId),
+        inicio: String(a.inicio),
+        overbooking: false, // furar a grade é decisão de balcão, não da SOFIA
+      }),
+  },
+
+  mover_agendamento: {
+    acao: "gerir_agenda",
+    descricao: "Remarca um agendamento existente para um novo horário.",
+    parametros: {
+      type: "object",
+      properties: {
+        agendamentoId: { type: "number", description: "Id do agendamento" },
+        novoInicio: { type: "string", description: "Novo início no formato ISO 8601" },
+      },
+      required: ["agendamentoId", "novoInicio"],
+    },
+    executar: async (tx, a) => agenda.remarcarAgendamento(tx, n(a.agendamentoId), String(a.novoInicio)),
+  },
+
+  cancelar_agendamento: {
+    acao: "gerir_agenda",
+    descricao: "Cancela um agendamento existente.",
+    parametros: {
+      type: "object",
+      properties: { agendamentoId: { type: "number", description: "Id do agendamento" } },
+      required: ["agendamentoId"],
+    },
+    executar: async (tx, a) => agenda.mudarStatus(tx, n(a.agendamentoId), "cancelada"),
+  },
 };
 
 /**
