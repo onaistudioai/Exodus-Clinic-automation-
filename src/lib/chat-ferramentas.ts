@@ -7,6 +7,10 @@ import * as estoque from "@/server/estoque.repo";
 import * as financeiro from "@/server/financeiro.repo";
 import * as agenda from "@/server/agenda.repo";
 import * as aprovacao from "@/server/aprovacao.repo";
+import * as crm from "@/server/crm.repo";
+import type { EstagioCrm } from "@/types/domain";
+import * as reativacao from "@/server/reativacao.repo";
+import * as escalonamentos from "@/server/escalonamentos.repo";
 
 /**
  * As ferramentas do chat. Cada uma é um invólucro fino sobre um repo que já
@@ -93,6 +97,47 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
       await aprovacao.expirarVencidas(tx);
       return aprovacao.listarPendentes(tx);
     },
+  },
+
+  consultar_crm: {
+    acao: "ver_crm",
+    descricao:
+      "Pipeline de relacionamento: pacientes por estágio (inadimplente, inativo, em tratamento, novo, ativo), com tarefas de follow-up abertas.",
+    parametros: {
+      type: "object",
+      properties: {
+        estagio: {
+          type: "string",
+          description: "Filtra por estágio: inadimplente, inativo, em_tratamento, novo ou ativo. Omitir para ver todos.",
+        },
+      },
+      required: [],
+    },
+    executar: async (tx, a) => ({
+      contagem: await crm.contarPorEstagio(tx),
+      pipeline: await crm.listarPipeline(
+        tx,
+        a.estagio ? { estagio: a.estagio as EstagioCrm } : {}
+      ),
+    }),
+  },
+
+  consultar_reativacao: {
+    acao: "ver_reativacao",
+    descricao: "Campanha de reativação ativa e métricas da sequência (em sequência, reativados, opt-out, concluídos, elegíveis).",
+    parametros: { type: "object", properties: {}, required: [] },
+    executar: async (tx) => {
+      const campanha = await reativacao.getCampanhaAtiva(tx);
+      const janela = campanha?.janela_dias ?? 30;
+      return { campanha, metricas: await reativacao.metricas(tx, janela) };
+    },
+  },
+
+  consultar_escalonamento: {
+    acao: "ver_escalonamento",
+    descricao: "Fila de atendimento humano: itens que a SOFIA encaminhou (sintoma clínico, dúvida, reclamação, pedido explícito) e ainda não foram resolvidos.",
+    parametros: { type: "object", properties: {}, required: [] },
+    executar: async (tx) => escalonamentos.listarFila(tx),
   },
 
   // ------------------------------------------------- escrita sensível
