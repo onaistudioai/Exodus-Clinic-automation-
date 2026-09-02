@@ -1,6 +1,7 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import type { Tx } from "@/lib/db";
+import { setPacienteId } from "@/lib/tenant";
 import { normalizarTelefone } from "@/lib/telefone";
 import {
   resolverIdentidadeConfiavel,
@@ -91,6 +92,14 @@ export async function identificarPaciente(
   }
 
   const paciente = resolucao.paciente;
+
+  // A partir daqui toda leitura de `pacientes`/`agendamentos_sofia_demo` (confirmar-
+  // Identidade, ehMenor, e o resto do handler da rota) precisa do GUC — é o que a
+  // policy rls_paciente_whatsapp lê. paciente.pacienteId já veio de
+  // fn_identidade_bootstrap (DEFINER, roda antes de existir GUC nenhum), então
+  // setar aqui — ANTES de confirmarIdentidade — fecha a janela sem precisar de
+  // DEFINER em mais nenhuma consulta deste fluxo.
+  await setPacienteId(tx, paciente.pacienteId);
 
   if (typeof corpo.data_nascimento !== "string") {
     // Fluxo normal, sem data ainda — não consulta nem conta o freio: senão o

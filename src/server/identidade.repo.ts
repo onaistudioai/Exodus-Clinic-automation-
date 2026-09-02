@@ -60,26 +60,19 @@ async function resolverContatoTitular(
   clinicaId: number;
   confiavel: boolean;
 } | null> {
+  // fn_identidade_bootstrap: SECURITY DEFINER de propósito (acesso-007-identidade-
+  // bootstrap.sql). Neste ponto app.paciente_id ainda NÃO existe — é esta consulta
+  // que o descobre — então uma leitura direta de `pacientes` sob RESTRICTIVE
+  // rls_paciente_whatsapp negaria sempre (deadlock achado no GATE A+B). A função
+  // reproduz o filtro de clinica_id manualmente (DEFINER também ignora RLS de
+  // tenant) e devolve só o mínimo — mesmo padrão de fn_login_lookup.
   const { rows } = await tx.query<{
     paciente_id: number;
     nome_completo: string;
     chat_id: string;
     clinica_id: number;
     confiavel: boolean;
-  }>(
-    `SELECT p.id AS paciente_id, p.nome_completo, c.chat_id, c.clinica_id,
-            fn_contato_confiavel(c.status, c.verificado_em) AS confiavel
-       FROM contatos_whatsapp c
-       JOIN paciente_contato pc
-         ON pc.contato_id = c.id AND pc.clinica_id = c.clinica_id
-       JOIN pacientes p ON p.id = pc.paciente_id
-      WHERE c.telefone = $1
-        AND pc.titular = true
-        AND pc.revogado_em IS NULL
-        AND p.status = 'ativo'
-      LIMIT 2`,
-    [telefoneE164]
-  );
+  }>(`SELECT * FROM fn_identidade_bootstrap($1)`, [telefoneE164]);
 
   if (rows.length !== 1) return null;
   return {
