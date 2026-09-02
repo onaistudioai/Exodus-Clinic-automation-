@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSofia } from "@/lib/api-guard";
-import { withTenant } from "@/lib/tenant";
+import { withTenant, setPacienteId } from "@/lib/tenant";
 import { identificarPaciente } from "@/lib/sofia-paciente";
 import { mudarStatusDoPaciente } from "@/server/identidade.repo";
 
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
   return withTenant(ctx.clinicaId, async (tx) => {
     const ident = await identificarPaciente(tx, ctx.corpo as Record<string, unknown>);
     if (!ident.ok) return ident.resposta;
+    await setPacienteId(tx, ident.paciente.pacienteId);
 
     const alterou = await mudarStatusDoPaciente(
       tx,

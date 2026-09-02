@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSofia } from "@/lib/api-guard";
-import { withTenant } from "@/lib/tenant";
+import { withTenant, setPacienteId } from "@/lib/tenant";
 import { identificarPaciente } from "@/lib/sofia-paciente";
 import { criarAgendamento, listarServicos } from "@/server/agenda.repo";
 
@@ -44,6 +44,7 @@ export async function POST(req: Request) {
   return withTenant(ctx.clinicaId, async (tx) => {
     const ident = await identificarPaciente(tx, ctx.corpo as Record<string, unknown>);
     if (!ident.ok) return ident.resposta;
+    await setPacienteId(tx, ident.paciente.pacienteId);
 
     // Serviço tem que existir NESTA clínica (a RLS já garante) e estar ativo.
     const servicos = await listarServicos(tx);

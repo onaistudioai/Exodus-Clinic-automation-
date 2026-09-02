@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSofia } from "@/lib/api-guard";
-import { withTenantReadOnly } from "@/lib/tenant";
+import { withTenantReadOnly, setPacienteId } from "@/lib/tenant";
 import { identificarPaciente } from "@/lib/sofia-paciente";
 import { proximosAgendamentosDoPaciente } from "@/server/identidade.repo";
 
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   return withTenantReadOnly(ctx.clinicaId, async (tx) => {
     const ident = await identificarPaciente(tx, ctx.corpo as Record<string, unknown>);
     if (!ident.ok) return ident.resposta;
+    await setPacienteId(tx, ident.paciente.pacienteId);
 
     const agendamentos = await proximosAgendamentosDoPaciente(tx, ident.paciente.pacienteId);
 
