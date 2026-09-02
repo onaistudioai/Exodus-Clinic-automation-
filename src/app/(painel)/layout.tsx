@@ -1,7 +1,8 @@
 import { verifySession } from "@/lib/dal";
-import { podeFazer } from "@/lib/rbac";
+import { permissoes } from "@/lib/rbac";
 import { Wordmark } from "@/components/ui";
 import { Icon } from "@/components/icons";
+import { MODULOS } from "./modulos";
 import { logoutAction } from "./actions";
 import GooeyNav, { type GooeyNavItem } from "@/components/GooeyNav";
 
@@ -16,23 +17,18 @@ export default async function PainelLayout({
   children: React.ReactNode;
 }) {
   const session = await verifySession();
+  const { pode } = await permissoes();
 
-  const links: GooeyNavItem[] = [{ href: "/", label: "Início" }];
-  if (podeFazer(session.papel, "ver_crm")) links.push({ href: "/crm", label: "CRM" });
-  if (podeFazer(session.papel, "checkin")) links.push({ href: "/checkin", label: "Check-in" });
-  if (podeFazer(session.papel, "checkin")) links.push({ href: "/merge", label: "Mesclar" });
-  if (podeFazer(session.papel, "ler_texto_clinico"))
-    links.push({ href: "/prontuario", label: "Prontuário" });
-  if (podeFazer(session.papel, "ver_estoque"))
-    links.push({ href: "/estoque", label: "Estoque" });
-  if (podeFazer(session.papel, "ver_agenda"))
-    links.push({ href: "/agenda", label: "Agenda" });
-  if (podeFazer(session.papel, "ver_reativacao"))
-    links.push({ href: "/reativacao", label: "Reativação" });
-  if (podeFazer(session.papel, "ver_financeiro"))
-    links.push({ href: "/financeiro", label: "Financeiro" });
-  if (podeFazer(session.papel, "ver_auditoria"))
-    links.push({ href: "/admin/auditoria", label: "Auditoria" });
+  // A nav DERIVA do catálogo MODULOS (fonte única). Módulo novo = uma linha em
+  // modulos.ts; este arquivo não muda. Antes eram 9 `if` à mão aqui, e o catálogo
+  // já tinha divergido (Conformidade existia e não aparecia no menu).
+  const links: GooeyNavItem[] = [
+    { href: "/", label: "Início" },
+    ...MODULOS.filter((m) => pode(m.acao)).map((m) => ({
+      href: m.href,
+      label: m.navLabel ?? m.titulo,
+    })),
+  ];
 
   return (
     <div className="min-h-screen">

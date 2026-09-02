@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAcao } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
-import { podeFazer } from "@/lib/rbac";
+import { permissoes } from "@/lib/rbac";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as estoque from "@/server/estoque.repo";
 import type { AlertaEstoque, NivelProduto, Produto } from "@/types/domain";
@@ -17,8 +17,9 @@ const ALERTA_LABEL: Record<AlertaEstoque["tipo"], { txt: string; cls: string }> 
 export default async function EstoquePage() {
   await requireAcao("ver_estoque");
   const session = await verifySession();
-  const podeGerir = podeFazer(session.papel, "gerir_estoque");
-  const podeBom = podeFazer(session.papel, "configurar_bom");
+  const { pode } = await permissoes();
+  const podeGerir = pode("gerir_estoque");
+  const podeBom = pode("configurar_bom");
 
   let alertas: AlertaEstoque[] = [];
   let niveis: NivelProduto[] = [];

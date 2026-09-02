@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAcao, podeFazer } from "@/lib/rbac";
+import { requireAcao, permissoes } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as estoque from "@/server/estoque.repo";
@@ -24,7 +24,8 @@ export default async function ProdutoEstoquePage({
 }) {
   await requireAcao("ver_estoque");
   const session = await verifySession();
-  const podeGerir = podeFazer(session.papel, "gerir_estoque");
+  const { pode } = await permissoes();
+  const podeGerir = pode("gerir_estoque");
   const produtoId = Number((await params).produtoId);
   if (!Number.isInteger(produtoId) || produtoId <= 0) notFound();
 

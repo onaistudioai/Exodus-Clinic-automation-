@@ -1,12 +1,13 @@
 import { verifySession } from "@/lib/dal";
-import { podeFazer } from "@/lib/rbac";
+import { permissoes } from "@/lib/rbac";
 import { MODULOS } from "./modulos";
 import DashboardShowcase from "./DashboardShowcase";
 
 export default async function HomePage() {
   const session = await verifySession();
-  const disponiveis = MODULOS.filter((m) => podeFazer(session.papel, m.acao)).map(
-    ({ acao: _acao, ...rest }) => rest // eslint-disable-line @typescript-eslint/no-unused-vars
+  const { pode } = await permissoes();
+  const disponiveis = MODULOS.filter((m) => pode(m.acao)).map(
+    ({ acao: _acao, ...rest }) => rest
   );
 
   return (

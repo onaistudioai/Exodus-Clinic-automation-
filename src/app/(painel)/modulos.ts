@@ -19,6 +19,8 @@ export type ModuloMeta = {
 };
 
 export const MODULOS: ModuloMeta[] = [
+  { href: "/aprovacoes", titulo: "Aprovações", navLabel: "Aprovações", descricao: "Pedidos que aguardam autorização e o estado dos seus próprios pedidos.", acao: "ver_solicitacoes", icon: "Alerta", art: ["#4ef07a", "#0d2116"] },
+  { href: "/chat", titulo: "Assistente", navLabel: "Assistente", descricao: "Converse com a clínica: consultar dados e pedir ações, dentro do seu nível de acesso.", acao: "usar_chat", icon: "Crm", art: ["#2ee06a", "#0d2116"] },
   { href: "/crm", titulo: "CRM", descricao: "Pacientes por estágio, ficha 360 e tarefas de follow-up.", acao: "ver_crm", icon: "Crm", art: ["#2ee06a", "#0c3b20"] },
   { href: "/checkin", titulo: "Check-in", descricao: "Buscar paciente, criar ficha e confirmar identidade no balcão.", acao: "checkin", icon: "Checkin", art: ["#27ff57", "#0c3b20"] },
   { href: "/prontuario", titulo: "Prontuário", descricao: "Histórico clínico, evoluções e registros de atendimento.", acao: "ler_texto_clinico", icon: "Prontuario", art: ["#34e0a1", "#0d2116"] },

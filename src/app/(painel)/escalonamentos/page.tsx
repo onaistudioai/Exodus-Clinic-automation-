@@ -2,7 +2,7 @@ import { requireAcao } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as escalonamentos from "@/server/escalonamentos.repo";
-import { assumirAction, resolverAction } from "./actions";
+import { assumirAction, resolverAction, reconfirmarContatoAction } from "./actions";
 
 const ROTULO: Record<string, string> = {
   sintoma_clinico: "sintoma",
@@ -12,6 +12,7 @@ const ROTULO: Record<string, string> = {
   pediu_humano: "pediu humano",
   nao_compreendido: "não compreendido",
   fora_de_escopo: "fora de escopo",
+  reconfirmar_identidade: "reconfirmar contato",
 };
 
 function espera(min: number): string {
@@ -78,12 +79,25 @@ export default async function EscalonamentosPage() {
                     </button>
                   </form>
                 )}
-                <form action={resolverAction}>
-                  <input type="hidden" name="id" value={i.id} />
-                  <button className="rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ring-neutral-300">
-                    Resolver
-                  </button>
-                </form>
+                {i.gatilho === "reconfirmar_identidade" ? (
+                  // Único caminho de volta (W2e): confirma a pessoa
+                  // presencialmente E carimba o contato — "Resolver" sozinho
+                  // deixaria o número preso mesmo fora da fila.
+                  <form action={reconfirmarContatoAction}>
+                    <input type="hidden" name="id" value={i.id} />
+                    <input type="hidden" name="chatId" value={i.chat_id} />
+                    <button className="rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ring-neutral-300">
+                      Confirmei presencialmente
+                    </button>
+                  </form>
+                ) : (
+                  <form action={resolverAction}>
+                    <input type="hidden" name="id" value={i.id} />
+                    <button className="rounded-lg px-2.5 py-1 text-xs font-medium ring-1 ring-neutral-300">
+                      Resolver
+                    </button>
+                  </form>
+                )}
               </div>
             </li>
           ))}

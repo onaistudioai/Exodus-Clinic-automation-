@@ -119,6 +119,15 @@ const CONTRACT_TESTS = [
   // tabela fechada, o EXECUTE liberado, o bloqueio em 3 falhas e a liberação
   // por sucesso — mesmo mecanismo de seguranca/002-contract-test.sql para login.
   PLAN("identidade", "sql", "002-contract-test.sql"),
+  // reconfirmação de contato reciclado (W2e, 2026-09-01): fn_contato_confiavel
+  // e o novo gatilho de escalonamento.
+  PLAN("identidade", "sql", "004-contract-test-reconfirmacao.sql"),
+  // nível de autorização (W2f, 2026-09-01): backfill do titular legado,
+  // trigger do titular novo, e não-elevação do não-titular.
+  PLAN("identidade", "sql", "006-contract-test-nivel.sql"),
+  // fila de aprovação do paciente (W2g, 2026-09-01): anti-flood por
+  // (chat_id,motivo), trigger de transição reusado, coerência de decisão.
+  PLAN("identidade", "sql", "008-contract-test-solicitacao.sql"),
 ];
 
 const client = new pg.Client({ connectionString: URL });

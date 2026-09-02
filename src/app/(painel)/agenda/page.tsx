@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAcao, podeFazer } from "@/lib/rbac";
+import { requireAcao, permissoes } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as agenda from "@/server/agenda.repo";
@@ -30,7 +30,8 @@ export default async function AgendaPage({
 }) {
   await requireAcao("ver_agenda");
   const session = await verifySession();
-  const podeGerir = podeFazer(session.papel, "gerir_agenda");
+  const { pode } = await permissoes();
+  const podeGerir = pode("gerir_agenda");
   const { data: dataParam } = await searchParams;
   const dia = /^\d{4}-\d{2}-\d{2}$/.test(dataParam ?? "") ? dataParam! : hojeISO();
 
@@ -70,7 +71,7 @@ export default async function AgendaPage({
           </p>
         </div>
         <nav className="flex gap-3 text-sm">
-          {podeFazer(session.papel, "gerir_escala") && (
+          {pode("gerir_escala") && (
             <>
               <Link href="/agenda/turnos" className="text-neutral-600 hover:text-neutral-900">
                 Turnos

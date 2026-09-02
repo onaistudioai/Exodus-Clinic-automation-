@@ -55,6 +55,11 @@ export async function POST(req: Request) {
       typeof corpo.evidencia === "string" ? corpo.evidencia : undefined
     );
 
+    // Oráculo conhecido e aceito (achado da sessão par, 2026-09-01): `mudou`
+    // distingue "havia consentimento ativo" de "não havia nada" para um número
+    // reciclado. É bem mais barato que o nome que o gate fecha para
+    // a_reconfirmar, e `mudou` é o que o n8n usa para decidir a resposta —
+    // por isso mantido, não colapsado num `{ok:true}` genérico.
     return NextResponse.json({ ok: true, mudou });
   });
 }

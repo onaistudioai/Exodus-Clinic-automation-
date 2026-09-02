@@ -5,6 +5,15 @@ import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as pacientes from "@/server/pacientes.repo";
 import * as prontuario from "@/server/prontuario.repo";
+import { listarVinculosDoPaciente, NIVEIS_AUTORIZACAO } from "@/server/identidade.repo";
+import { definirNivelAction } from "./vinculos-actions";
+
+const ROTULO_NIVEL: Record<string, string> = {
+  nenhum: "nenhum",
+  agendar: "agendar",
+  agendar_e_consultar: "agendar e consultar",
+  total: "total",
+};
 
 function fmtData(iso: string | null): string {
   if (!iso) return "—";
@@ -32,7 +41,8 @@ export default async function FichaPacientePage({
     const paciente = await pacientes.obterPorId(tx, id);
     if (!paciente) return null;
     const etiquetas = await prontuario.listarEtiquetas(tx, id);
-    return { paciente, etiquetas };
+    const vinculos = await listarVinculosDoPaciente(tx, id);
+    return { paciente, etiquetas, vinculos };
   });
   if (!dados) notFound();
 
@@ -88,6 +98,54 @@ export default async function FichaPacientePage({
                   )}
                 </div>
                 <span className="text-xs text-neutral-400">{fmtData(e.criado_em)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-neutral-500">
+          Vínculos WhatsApp ({dados.vinculos.length})
+        </h2>
+        <p className="text-xs text-neutral-400">
+          Nível controla o que a SOFIA faz em nome deste número por este paciente. O vínculo
+          titular já vem com &quot;agendar e consultar&quot; (é o próprio dado dele); outros
+          vínculos só ganham nível por esta ação — nunca por autoatendimento no WhatsApp.
+        </p>
+        {dados.vinculos.length === 0 ? (
+          <p className="text-sm text-neutral-500">Nenhum contato WhatsApp vinculado.</p>
+        ) : (
+          <ul className="divide-y divide-neutral-100 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5">
+            {dados.vinculos.map((v) => (
+              <li key={v.contatoId} className="flex items-center justify-between gap-3 p-4 text-sm">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium">
+                      {v.papel}
+                    </span>
+                    <span className="truncate text-neutral-700">{v.telefone ?? v.chatId}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-400">nível atual: {ROTULO_NIVEL[v.nivel]}</p>
+                </div>
+                <form action={definirNivelAction} className="flex shrink-0 items-center gap-2">
+                  <input type="hidden" name="contatoId" value={v.contatoId} />
+                  <input type="hidden" name="pacienteId" value={p.id} />
+                  <select
+                    name="nivel"
+                    defaultValue={v.nivel}
+                    className="rounded-lg px-2 py-1 text-xs ring-1 ring-neutral-300"
+                  >
+                    {NIVEIS_AUTORIZACAO.map((n) => (
+                      <option key={n} value={n}>
+                        {ROTULO_NIVEL[n]}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="rounded-lg bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white">
+                    Salvar
+                  </button>
+                </form>
               </li>
             ))}
           </ul>

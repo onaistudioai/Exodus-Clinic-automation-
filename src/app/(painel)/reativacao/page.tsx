@@ -1,4 +1,4 @@
-import { requireAcao, podeFazer } from "@/lib/rbac";
+import { requireAcao, permissoes } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as reativacao from "@/server/reativacao.repo";
@@ -10,7 +10,8 @@ const JANELA_FALLBACK = 30;
 export default async function ReativacaoPage() {
   await requireAcao("ver_reativacao");
   const session = await verifySession();
-  const podeGerir = podeFazer(session.papel, "gerir_reativacao");
+  const { pode } = await permissoes();
+  const podeGerir = pode("gerir_reativacao");
 
   let campanha: Campanha | null = null;
   let metricas: MetricasReativacao | null = null;

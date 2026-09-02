@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAcao, podeFazer } from "@/lib/rbac";
+import { requireAcao, permissoes } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as financeiro from "@/server/financeiro.repo";
@@ -24,7 +24,8 @@ const VAZIO: IndicadoresFinanceiro = {
 export default async function FinanceiroPage() {
   await requireAcao("ver_financeiro");
   const session = await verifySession();
-  const podeGerir = podeFazer(session.papel, "gerir_financeiro");
+  const { pode } = await permissoes();
+  const podeGerir = pode("gerir_financeiro");
 
   let ind = VAZIO;
   let abertas: Cobranca[] = [];

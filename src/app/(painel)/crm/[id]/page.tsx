@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireAcao, podeFazer } from "@/lib/rbac";
+import { requireAcao, permissoes } from "@/lib/rbac";
 import { verifySession } from "@/lib/dal";
 import { withTenantReadOnly } from "@/lib/tenant";
 import * as crm from "@/server/crm.repo";
@@ -21,6 +21,7 @@ const STATUS_REATIVACAO: Record<string, string> = {
 export default async function FichaCrmPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAcao("ver_crm");
   const session = await verifySession();
+  const { pode } = await permissoes();
   const pacienteId = Number((await params).id);
   if (!Number.isInteger(pacienteId) || pacienteId <= 0) notFound();
 
@@ -160,14 +161,14 @@ export default async function FichaCrmPage({ params }: { params: Promise<{ id: s
         <TarefasPaciente
           pacienteId={p.id}
           tarefas={ficha.tarefas}
-          podeGerir={podeFazer(session.papel, "gerir_crm")}
+          podeGerir={pode("gerir_crm")}
         />
 
         {/* Direitos do titular (LGPD art. 18) — dossiê e pedido de eliminação */}
         <TitularLgpd
           pacienteId={p.id}
-          podeEliminar={podeFazer(session.papel, "expurgo_logico")}
-          podeVerDossie={podeFazer(session.papel, "ler_texto_clinico")}
+          podeEliminar={pode("expurgo_logico")}
+          podeVerDossie={pode("ler_texto_clinico")}
           pedidoEm={p.eliminacao_pedida_em}
           anonimizadoEm={p.anonimizado_em}
         />
