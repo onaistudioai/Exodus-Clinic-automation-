@@ -33,14 +33,26 @@ import { lerCatalogoReal } from "../helpers/extrair-ferramentas.ts";
  * negasse tudo, inclusive para quem deveria poder, quebraria o lado
  * positivo e o teste acusaria.
  *
+ * GUARDRAIL 3 (sentinela estrutural — cobrado no GATE-OK condicional):
+ * 6 das 10 acoes da matriz são concedidas aos TRÊS papéis, então não existe
+ * papel negativo para elas hoje — a asserção 1/1/1 sozinha passaria idêntica
+ * com a policy RESTRICTIVE removida da tabela. É o mesmo buraco achado em
+ * `solicitacao_aprovacao` abaixo, generalizado: `assertPolicyRestritivaDePapel`
+ * confirma, para cada probe, que a tabela TEM uma policy RESTRICTIVE
+ * referenciando `papel_acao` para aquele comando — a estrutura, não o
+ * resultado — para que remover a policy vire teste vermelho, não silêncio.
+ *
  * O QUE ESTE ARQUIVO NÃO PROVA: a rota "vira pedido de aprovação" — isso é
  * decisão de `rbac-aprovacao.ts` (app layer, não RLS) baseada em
  * `acao.sensivel`; a tabela de destino (`solicitacao_aprovacao`) só tem
  * `rls_tenant`, sem policy de papel (confirmado ao vivo via pg_policies).
  * Isso não é uma lacuna de segurança neste caso: `ver_solicitacoes` é
  * concedida aos TRÊS papéis em produção (confirmado ao vivo), então não há
- * papel para o qual RLS precisaria negar — ver o teste dedicado abaixo, que
- * verifica as duas pontas dessa afirmação em vez de presumir.
+ * papel para o qual RLS precisaria negar hoje — ver os testes dedicados
+ * abaixo. MAS é a única tabela do catálogo onde a autorização por papel
+ * mora só em TypeScript — registrada como dívida #10 no RETOMADA §5
+ * (parecer: deveria ganhar RESTRICTIVE por papel; decisão de DDL é do
+ * usuário, não desta camada de teste).
  */
 
 const CRED_PATH = "D:/projetos/.credentials/exodus/postgres.env";
@@ -109,6 +121,32 @@ async function atualizarNoop(tabela: string, coluna: string, id: number): Promis
   } catch (e) {
     classificarErro(e);
   }
+}
+
+/**
+ * Sentinela estrutural: 6 das 10 acoes da matriz são concedidas aos 3
+ * papéis (nenhum negativo existe hoje), então a asserção 1/1/1 sozinha
+ * passaria idêntica com a policy RESTRICTIVE removida da tabela — o mesmo
+ * buraco achado em `solicitacao_aprovacao` (dívida #10). Sem essa checagem,
+ * essas 6 linhas seriam decorativas. Prova que a tabela TEM uma policy
+ * RESTRICTIVE de papel (`papel_acao` no qual/with_check) para o comando —
+ * não seu resultado, só a estrutura — para uma policy removida virar teste
+ * vermelho em vez de silêncio.
+ */
+async function assertPolicyRestritivaDePapel(tabela: string, cmd: "SELECT" | "UPDATE"): Promise<void> {
+  await comoDono();
+  const r = await db.query<{ qual: string | null; with_check: string | null }>(
+    `SELECT qual, with_check FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = $1 AND cmd = $2 AND permissive = 'RESTRICTIVE'`,
+    [tabela, cmd]
+  );
+  const temPapelAcao = r.rows.some((row) =>
+    `${row.qual ?? ""} ${row.with_check ?? ""}`.includes("papel_acao")
+  );
+  assert.ok(
+    temPapelAcao,
+    `${tabela}: sem policy RESTRICTIVE de papel (papel_acao) para ${cmd} — esta linha da matriz passaria idêntica com a policy removida`
+  );
 }
 
 async function papelTemAcao(papel: Papel, acao: string): Promise<boolean> {
@@ -248,6 +286,8 @@ for (const probe of PROBES) {
     `matriz: acao "${probe.acao}" (${probe.tabela}, ${probe.tipo}) — os 3 papéis batem com papel_acao ao vivo`,
     { skip: SKIP },
     async () => {
+      await assertPolicyRestritivaDePapel(probe.tabela, probe.tipo === "select" ? "SELECT" : "UPDATE");
+
       for (const papel of PAPEIS) {
         const permitida = await papelTemAcao(papel, probe.acao);
         await comoContexto(papel);
