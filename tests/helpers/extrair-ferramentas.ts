@@ -107,3 +107,86 @@ export function lerCatalogoReal(): CatalogoExtraido {
   const sourceFile = ts.createSourceFile(caminho.pathname, fonte, ts.ScriptTarget.Latest, true);
   return extrairFerramentas(sourceFile);
 }
+
+/** Só os literais que `descricao`/`parametros` usam de fato — string, objeto, array, boolean. */
+function literalParaJson(node: ts.Expression): unknown {
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (node.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (ts.isNumericLiteral(node)) return Number(node.text);
+  if (ts.isArrayLiteralExpression(node)) return node.elements.map(literalParaJson);
+  if (ts.isObjectLiteralExpression(node)) {
+    const obj: Record<string, unknown> = {};
+    for (const p of node.properties) {
+      if (!ts.isPropertyAssignment(p)) continue;
+      const nome = nomeDaPropriedade(p.name);
+      if (!nome) continue;
+      obj[nome] = literalParaJson(p.initializer);
+    }
+    return obj;
+  }
+  throw new Error(`literalParaJson: nó não suportado (${ts.SyntaxKind[node.kind]}) — parametros/descricao usa algo além de literal simples`);
+}
+
+export interface FerramentaExpostaCompleta {
+  type: "function";
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: "object";
+      properties: Record<string, { type: string; description: string }>;
+      required: string[];
+    };
+  };
+}
+
+/**
+ * Igual a `lerCatalogoReal()`, mas devolve o objeto COMPLETO no formato que
+ * `chamarLLM()` (src/lib/llm.ts) espera — descrições e schemas de parâmetro
+ * inteiros, não só os nomes. Usado pela camada 3 (trajetória com LLM), que
+ * precisa do catálogo real para o modelo escolher ferramenta de verdade.
+ */
+export function lerCatalogoCompleto(): FerramentaExpostaCompleta[] {
+  const caminho = new URL("../../src/lib/chat-ferramentas.ts", import.meta.url);
+  const fonte = fs.readFileSync(caminho, "utf-8");
+  const sourceFile = ts.createSourceFile(caminho.pathname, fonte, ts.ScriptTarget.Latest, true);
+
+  let ferramentasObj: ts.ObjectLiteralExpression | undefined;
+  sourceFile.forEachChild((node) => {
+    if (!ts.isVariableStatement(node)) return;
+    for (const decl of node.declarationList.declarations) {
+      if (
+        ts.isIdentifier(decl.name) &&
+        decl.name.text === "FERRAMENTAS" &&
+        decl.initializer &&
+        ts.isObjectLiteralExpression(decl.initializer)
+      ) {
+        ferramentasObj = decl.initializer;
+      }
+    }
+  });
+  assert.ok(ferramentasObj, "não achou `export const FERRAMENTAS = {...}` — o arquivo mudou de forma?");
+
+  const resultado: FerramentaExpostaCompleta[] = [];
+  for (const prop of ferramentasObj.properties) {
+    if (!ts.isPropertyAssignment(prop)) continue;
+    const nome = nomeDaPropriedade(prop.name);
+    if (!nome || !ts.isObjectLiteralExpression(prop.initializer)) continue;
+    const def = prop.initializer;
+
+    const descricao = stringLiteral(acharProp(def, "descricao"));
+    const parametros = acharProp(def, "parametros");
+    if (!descricao || !parametros || !ts.isObjectLiteralExpression(parametros)) continue;
+
+    resultado.push({
+      type: "function",
+      function: {
+        name: nome,
+        description: descricao,
+        parameters: literalParaJson(parametros) as FerramentaExpostaCompleta["function"]["parameters"],
+      },
+    });
+  }
+  return resultado;
+}

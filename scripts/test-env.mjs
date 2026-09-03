@@ -26,11 +26,14 @@ function ler(arquivo, chave) {
 const DATABASE_URL = ler("postgres.env", "DATABASE_URL_PAINEL_BR");
 const CPF_PEPPER = ler("painel.env", "CPF_PEPPER");
 const SOFIA_HMAC_SECRETS = ler("painel.env", "SOFIA_HMAC_SECRETS");
+// Camada 3 (RETOMADA.md §4) — trajetória com LLM: mesma chave que a SOFIA usa no n8n.
+const GROQ_API_KEY = ler("groq.env", "GROQ_API_KEY");
 
 const faltando = [
   !DATABASE_URL && "DATABASE_URL_PAINEL_BR (postgres.env)",
   !CPF_PEPPER && "CPF_PEPPER (painel.env)",
   !SOFIA_HMAC_SECRETS && "SOFIA_HMAC_SECRETS (painel.env)",
+  !GROQ_API_KEY && "GROQ_API_KEY (groq.env)",
 ].filter(Boolean);
 if (faltando.length) {
   console.error("test-env: faltando no cofre local:", faltando.join(", "));
@@ -48,6 +51,7 @@ const r = spawnSync("node", args, {
     ...(DATABASE_URL ? { DATABASE_URL } : {}),
     ...(CPF_PEPPER ? { CPF_PEPPER } : {}),
     ...(SOFIA_HMAC_SECRETS ? { SOFIA_HMAC_SECRETS } : {}),
+    ...(GROQ_API_KEY ? { GROQ_API_KEY } : {}),
   },
 });
 process.exit(r.status ?? 1);
