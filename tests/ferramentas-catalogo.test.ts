@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import ts from "typescript";
 
 import { ACOES } from "../src/lib/rbac-matriz.ts";
 import { selecionarFerramentas } from "../src/lib/catalogo-regra.ts";
+import { lerCatalogoReal } from "./helpers/extrair-ferramentas.ts";
 
 /**
  * Camada 1 (RETOMADA.md §4) — contrato do catálogo do chat. Sem LLM, sem banco.
@@ -12,100 +11,11 @@ import { selecionarFerramentas } from "../src/lib/catalogo-regra.ts";
  * `chat-ferramentas.ts` não pode ser importado por um teste puro: ele arrasta
  * `dal.ts` -> `next/navigation`, que só resolve dentro do bundler do Next e
  * cujas funções (`cookies()`/`headers()`) exigem um request real em runtime.
- * Por isso o catálogo é extraído por AST — só sintaxe, sem executar nada —
- * em vez de `import`. `typescript` já é devDependency do projeto.
+ * Por isso o catálogo é extraído por AST (helpers/extrair-ferramentas.ts,
+ * compartilhado com a camada 2) — só sintaxe, sem executar nada.
  */
 
-const CAMINHO = new URL("../src/lib/chat-ferramentas.ts", import.meta.url);
-const FONTE = fs.readFileSync(CAMINHO, "utf-8");
-const SOURCE_FILE = ts.createSourceFile(CAMINHO.pathname, FONTE, ts.ScriptTarget.Latest, true);
-
-interface FerramentaExtraida {
-  nome: string;
-  acao: string | undefined;
-  tipo: string | undefined;
-  properties: string[];
-  required: string[];
-}
-
-function nomeDaPropriedade(name: ts.PropertyName): string | undefined {
-  if (ts.isIdentifier(name)) return name.text;
-  if (ts.isStringLiteralLike(name)) return name.text;
-  return undefined;
-}
-
-function acharProp(obj: ts.ObjectLiteralExpression, nome: string): ts.Expression | undefined {
-  for (const p of obj.properties) {
-    if (ts.isPropertyAssignment(p) && nomeDaPropriedade(p.name) === nome) return p.initializer;
-  }
-  return undefined;
-}
-
-function stringLiteral(node: ts.Expression | undefined): string | undefined {
-  return node && ts.isStringLiteralLike(node) ? node.text : undefined;
-}
-
-interface CatalogoExtraido {
-  ferramentas: FerramentaExtraida[];
-  /** Total de propriedades declaradas em `FERRAMENTAS`, para o extrator não poder perder nenhuma em silêncio. */
-  totalDeclarado: number;
-}
-
-function extrairFerramentas(sf: ts.SourceFile): CatalogoExtraido {
-  let ferramentasObj: ts.ObjectLiteralExpression | undefined;
-
-  sf.forEachChild((node) => {
-    if (!ts.isVariableStatement(node)) return;
-    for (const decl of node.declarationList.declarations) {
-      if (
-        ts.isIdentifier(decl.name) &&
-        decl.name.text === "FERRAMENTAS" &&
-        decl.initializer &&
-        ts.isObjectLiteralExpression(decl.initializer)
-      ) {
-        ferramentasObj = decl.initializer;
-      }
-    }
-  });
-  assert.ok(ferramentasObj, "não achou `export const FERRAMENTAS = {...}` — o arquivo mudou de forma?");
-
-  const resultado: FerramentaExtraida[] = [];
-  for (const prop of ferramentasObj.properties) {
-    if (!ts.isPropertyAssignment(prop)) continue;
-    const nome = nomeDaPropriedade(prop.name);
-    if (!nome || !ts.isObjectLiteralExpression(prop.initializer)) continue;
-    const def = prop.initializer;
-
-    const acao = stringLiteral(acharProp(def, "acao"));
-
-    const parametros = acharProp(def, "parametros");
-    let tipo: string | undefined;
-    let properties: string[] = [];
-    let required: string[] = [];
-    if (parametros && ts.isObjectLiteralExpression(parametros)) {
-      tipo = stringLiteral(acharProp(parametros, "type"));
-
-      const propsNode = acharProp(parametros, "properties");
-      if (propsNode && ts.isObjectLiteralExpression(propsNode)) {
-        properties = propsNode.properties
-          .map((p) => (ts.isPropertyAssignment(p) ? nomeDaPropriedade(p.name) : undefined))
-          .filter((x): x is string => Boolean(x));
-      }
-
-      const requiredNode = acharProp(parametros, "required");
-      if (requiredNode && ts.isArrayLiteralExpression(requiredNode)) {
-        required = requiredNode.elements
-          .map((el) => stringLiteral(el))
-          .filter((x): x is string => Boolean(x));
-      }
-    }
-
-    resultado.push({ nome, acao, tipo, properties, required });
-  }
-  return { ferramentas: resultado, totalDeclarado: ferramentasObj.properties.length };
-}
-
-const { ferramentas: FERRAMENTAS, totalDeclarado } = extrairFerramentas(SOURCE_FILE);
+const { ferramentas: FERRAMENTAS, totalDeclarado } = lerCatalogoReal();
 
 test("o extrator não perde nenhuma ferramenta em silêncio: uma entrada extraída por propriedade declarada", () => {
   assert.equal(
