@@ -183,3 +183,26 @@ test("consultar_auditoria: admin lê a trilha", { skip: SKIP }, async () => {
   const r = await db.query("SELECT * FROM prontuario_acessos WHERE id = $1", [acessoId]);
   assert.equal(r.rowCount, 1, "admin tem ver_auditoria — deveria ver a linha");
 });
+
+// Parte F: chat_chamadas — mesma trava de ver_auditoria (é trilha de
+// fiscalização, mesma classe de prontuario_acessos). Append-only por
+// trigger: não seed via INSERT direto e depois DELETE — usa o próprio
+// registrarChamada-equivalente (INSERT simples) e deixa a linha (a suíte já
+// roda dentro de uma transação com ROLLBACK no after()).
+test("chat_chamadas: recepção (sem ver_auditoria) não lê, admin lê", { skip: SKIP }, async () => {
+  await db.query("RESET ROLE");
+  const linha = await db.query<{ id: number }>(
+    `INSERT INTO chat_chamadas (clinica_id, usuario_id, ferramenta, acao, resultado)
+     VALUES ($1, $2, 'consultar_crm', 'ver_crm', 'sucesso') RETURNING id`,
+    [clinicaA, usuarioMedico]
+  );
+  const chamadaId = linha.rows[0].id;
+
+  await comoContexto({ clinica_id: clinicaA, canal: "painel", papel: "recepcao" });
+  let r = await db.query("SELECT * FROM chat_chamadas WHERE id = $1", [chamadaId]);
+  assert.equal(r.rowCount, 0, "recepção não tem ver_auditoria — deveria negar");
+
+  await comoContexto({ clinica_id: clinicaA, canal: "painel", papel: "admin" });
+  r = await db.query("SELECT * FROM chat_chamadas WHERE id = $1", [chamadaId]);
+  assert.equal(r.rowCount, 1, "admin tem ver_auditoria — deveria ver a linha");
+});

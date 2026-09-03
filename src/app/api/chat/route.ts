@@ -5,6 +5,7 @@ import { requireAcaoOuSolicitar } from "@/lib/rbac-aprovacao";
 import { withTenant } from "@/lib/tenant";
 import { chamarLLM, type Mensagem } from "@/lib/llm";
 import { FERRAMENTAS, catalogoDaSessao } from "@/lib/chat-ferramentas";
+import { registrarChamada } from "@/server/chat-chamadas.repo";
 
 /**
  * O chat do painel. Porta única para os módulos, com o papel decidindo o que dá
@@ -91,9 +92,15 @@ export async function POST(req: Request) {
             const gate = await requireAcaoOuSolicitar(ferramenta.acao, args);
 
             if (gate.permitido) {
-              resultado = await withTenant(session.clinica_id, (tx) =>
-                ferramenta.executar(tx, args, { usuarioId: session.usuario_id })
-              );
+              // Trilha da Parte F: negado grava tanto quanto sucesso, então o
+              // registro entra na MESMA transação da execução — se a
+              // ferramenta falhar, o rollback também desfaz o log, e o catch
+              // abaixo registra 'erro' numa tx própria.
+              resultado = await withTenant(session.clinica_id, async (tx) => {
+                const r = await ferramenta.executar(tx, args, { usuarioId: session.usuario_id });
+                await registrarChamada(tx, chamada.function.name, ferramenta.acao, "sucesso", session.usuario_id);
+                return r;
+              });
             } else {
               pedidosCriados.push({ id: gate.solicitacaoId, acao: gate.acao });
               resultado = {
@@ -102,9 +109,15 @@ export async function POST(req: Request) {
                 aviso:
                   "Ação NÃO executada: seu papel não tem essa permissão. Foi aberto um pedido de aprovação para o dono da clínica.",
               };
+              await withTenant(session.clinica_id, (tx) =>
+                registrarChamada(tx, chamada.function.name, ferramenta.acao, "negado", session.usuario_id)
+              );
             }
           } catch (e) {
             resultado = { erro: e instanceof Error ? e.message : "Falha ao executar." };
+            await withTenant(session.clinica_id, (tx) =>
+              registrarChamada(tx, chamada.function.name, ferramenta.acao, "erro", session.usuario_id)
+            ).catch(() => {}); // a trilha não pode ser o motivo de uma resposta quebrar
           }
         }
       }
