@@ -29,22 +29,36 @@ after(async () => {
   if (client) await client.end();
 });
 
-/** Extrai os literais de um CHECK do tipo `status = ANY (ARRAY['a'::text, ...])`. */
-async function valoresDoCheck(nome: string): Promise<string[]> {
-  const { rows } = await client.query<{ def: string }>(
+/**
+ * Dívida #9 do RETOMADA: `chk_status_agendamento` não existe mais — o status
+ * virou FK (`fk_status_agendamento REFERENCES estado_agendamento(estado)`),
+ * então os valores válidos vivem como LINHAS de `estado_agendamento`, não
+ * como literais dentro da definição da constraint. Confere que a FK aponta
+ * pra tabela certa (guarda contra outra migração trocar o mecanismo de novo
+ * em silêncio) e lê os valores de lá.
+ */
+async function valoresDaFk(constraint: string, tabelaEsperada: string, coluna: string): Promise<string[]> {
+  const def = await client.query<{ def: string }>(
     `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = $1`,
-    [nome]
+    [constraint]
   );
-  assert.equal(rows.length, 1, `constraint ${nome} não encontrada no banco`);
-  return [...rows[0].def.matchAll(/'([a-z_]+)'::/g)].map((m) => m[1]);
+  assert.equal(def.rows.length, 1, `constraint ${constraint} não encontrada no banco`);
+  assert.match(
+    def.rows[0].def,
+    new RegExp(`REFERENCES ${tabelaEsperada}\\(${coluna}\\)`),
+    `${constraint} não referencia ${tabelaEsperada}(${coluna}) — mecanismo mudou de novo, atualize este teste`
+  );
+
+  const { rows } = await client.query<{ v: string }>(`SELECT ${coluna} AS v FROM ${tabelaEsperada}`);
+  return rows.map((r) => r.v);
 }
 
-test("status do TS == CHECK do banco", { skip: !URL && "sem DATABASE_URL" }, async () => {
-  const noBanco = await valoresDoCheck("chk_status_agendamento");
+test("status do TS == valores de estado_agendamento (via fk_status_agendamento)", { skip: !URL && "sem DATABASE_URL" }, async () => {
+  const noBanco = await valoresDaFk("fk_status_agendamento", "estado_agendamento", "estado");
   assert.deepEqual(
     [...STATUS_AGENDAMENTO].sort(),
     [...noBanco].sort(),
-    "STATUS_AGENDAMENTO divergiu de chk_status_agendamento — atualize os dois lados"
+    "STATUS_AGENDAMENTO divergiu de estado_agendamento — atualize os dois lados"
   );
 });
 
