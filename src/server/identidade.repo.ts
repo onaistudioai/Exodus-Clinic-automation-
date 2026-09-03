@@ -1,8 +1,25 @@
 import type { Tx } from "@/lib/db";
-import {
-  solicitarAprovacaoPacientePg,
-  type SolicitarAprovacaoPaciente,
-} from "@/server/solicitacao-paciente.repo";
+import type { SolicitarAprovacaoPaciente } from "@/server/solicitacao-paciente.repo";
+
+/**
+ * `solicitarAprovacaoPacientePg` (o valor, não o tipo) só é usado abaixo como
+ * DEFAULT de parâmetro injetável, em duas funções que a maioria dos callers
+ * nunca sobrescreve — então um `import` estático dele arrasta
+ * `solicitacao-paciente.repo.ts` (e, por trás, `server-only`/`@/lib/tenant`)
+ * para todo caminho que só quer o TIPO. `node --test` puro não resolve o
+ * alias `@/` dessa cadeia (mesma limitação das demais suites de
+ * integração), e é por isso que os testes deste arquivo importam
+ * `identidade.repo.ts` direto. Adiar a resolução para a hora da CHAMADA
+ * (import relativo, dentro de `abrir`) resolve os dois lados: produção se
+ * comporta idêntico — mesmo default, mesma implementação — e a cadeia
+ * estática desaparece.
+ */
+const solicitarAprovacaoPacientePgLazy: SolicitarAprovacaoPaciente = {
+  async abrir(clinicaId, params) {
+    const { solicitarAprovacaoPacientePg } = await import("./solicitacao-paciente.repo");
+    return solicitarAprovacaoPacientePg.abrir(clinicaId, params);
+  },
+};
 
 /**
  * W2d — Identidade do paciente no canal WhatsApp.
@@ -262,7 +279,7 @@ export async function mudarStatusDoPaciente(
   pacienteId: number,
   agendamentoId: number,
   status: "confirmada" | "cancelada",
-  solicitar: SolicitarAprovacaoPaciente = solicitarAprovacaoPacientePg
+  solicitar: SolicitarAprovacaoPaciente = solicitarAprovacaoPacientePgLazy
 ): Promise<boolean> {
   const vinculo = await vinculoTitularDoPaciente(tx, pacienteId);
   if (!vinculo || !nivelAtende(vinculo.nivel, "agendar")) {
@@ -307,7 +324,7 @@ export async function mudarStatusDoPaciente(
 export async function proximosAgendamentosDoPaciente(
   tx: Tx,
   pacienteId: number,
-  solicitar: SolicitarAprovacaoPaciente = solicitarAprovacaoPacientePg
+  solicitar: SolicitarAprovacaoPaciente = solicitarAprovacaoPacientePgLazy
 ): Promise<Array<{ inicio: string; servico: string; profissional: string; status: string }>> {
   const vinculo = await vinculoTitularDoPaciente(tx, pacienteId);
   if (!vinculo || !nivelAtende(vinculo.nivel, "agendar_e_consultar")) {
