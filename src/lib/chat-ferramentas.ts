@@ -12,6 +12,7 @@ import type { EstagioCrm } from "@/types/domain";
 import * as reativacao from "@/server/reativacao.repo";
 import * as escalonamentos from "@/server/escalonamentos.repo";
 import * as prontuario from "@/server/prontuario.repo";
+import { selecionarFerramentas } from "@/lib/catalogo-regra";
 
 /**
  * As ferramentas do chat. Cada uma é um invólucro fino sobre um repo que já
@@ -284,16 +285,18 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
 export async function catalogoDaSessao(): Promise<FerramentaExposta[]> {
   const permitidas = new Set((await acoesPermitidas()).map((a) => a.chave));
 
-  const expostas: FerramentaExposta[] = [];
-  for (const [nome, f] of Object.entries(FERRAMENTAS)) {
-    if (!permitidas.has(f.acao)) {
-      const meta = await metaDaAcao(f.acao);
-      if (!meta?.sensivel) continue; // não pode e não é sensível: nem aparece
-    }
-    expostas.push({
-      type: "function",
-      function: { name: nome, description: f.descricao, parameters: f.parametros },
-    });
+  const candidatas = Object.entries(FERRAMENTAS).map(([nome, f]) => ({ nome, acao: f.acao, f }));
+  const acoesNaoPermitidas = new Set(
+    candidatas.filter((c) => !permitidas.has(c.acao)).map((c) => c.acao)
+  );
+  const sensiveis = new Set<string>();
+  for (const acao of acoesNaoPermitidas) {
+    const meta = await metaDaAcao(acao);
+    if (meta?.sensivel) sensiveis.add(acao);
   }
-  return expostas;
+
+  return selecionarFerramentas(candidatas, permitidas, sensiveis).map(({ nome, f }) => ({
+    type: "function",
+    function: { name: nome, description: f.descricao, parameters: f.parametros },
+  }));
 }
