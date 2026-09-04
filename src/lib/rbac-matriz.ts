@@ -48,6 +48,7 @@ export const ACOES = [
   "ver_solicitacoes",
   "aprovar_solicitacao",
   "usar_chat",
+  "gerir_usuarios",
 ] as const;
 
 export type Papel = (typeof PAPEIS)[number];
