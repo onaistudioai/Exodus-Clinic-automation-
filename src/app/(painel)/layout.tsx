@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { verifySession } from "@/lib/dal";
 import { permissoes } from "@/lib/rbac";
 import { Wordmark } from "@/components/ui";
@@ -41,10 +42,19 @@ export default async function PainelLayout({
             </div>
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <span className="hidden items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/85 ring-1 ring-white/15 sm:inline-flex">
+            {/* O crachá é o caminho para a própria conta. Não entra em MODULOS:
+                trocar a própria senha não tem `acao` (todo mundo com login pode,
+                inclusive quem não tem permissão para mais nada), e MODULOS filtra
+                por ação. */}
+            <Link
+              href="/conta/senha"
+              title="Minha conta — trocar senha"
+              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/85 ring-1 ring-white/15 transition hover:bg-white/20 hover:text-white"
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
-              clínica #{session.clinica_id} · {session.papel}
-            </span>
+              <span className="hidden sm:inline">clínica #{session.clinica_id} · </span>
+              {session.papel}
+            </Link>
             <form action={logoutAction}>
               <button className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-white/70 transition hover:bg-white/10 hover:text-white">
                 <Icon.Logout className="h-4 w-4" />

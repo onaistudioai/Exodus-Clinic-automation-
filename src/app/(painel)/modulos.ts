@@ -30,6 +30,7 @@ export const MODULOS: ModuloMeta[] = [
   { href: "/reativacao", titulo: "Reativação", descricao: "Pacientes inativos e campanhas de retorno via WhatsApp.", acao: "ver_reativacao", icon: "Reativacao", art: ["#34e0a1", "#14331f"] },
   { href: "/escalonamentos", titulo: "Escalonamentos", descricao: "Conversas em que o bot parou e chamou a equipe. Prazo e responsável.", acao: "ver_escalonamento", icon: "Alerta", art: ["#4ef07a", "#14331f"] },
   { href: "/merge", titulo: "Mesclar pacientes", navLabel: "Mesclar", descricao: "Unificar fichas duplicadas com segurança.", acao: "checkin", icon: "Merge", art: ["#27ff57", "#0d2116"] },
+  { href: "/admin/usuarios", titulo: "Equipe", navLabel: "Equipe", descricao: "Quem tem acesso ao painel. O papel define o que a pessoa pode fazer.", acao: "gerir_usuarios", icon: "Crm", art: ["#18c93f", "#14331f"] },
   { href: "/admin/auditoria", titulo: "Auditoria", descricao: "Quem acessou o quê — trilha de acesso a dados sensíveis.", acao: "ver_auditoria", icon: "Auditoria", art: ["#57f57e", "#0c3b20"] },
   { href: "/conformidade", titulo: "Conformidade", descricao: "Consentimento, livros imutáveis e prova para auditoria/LGPD.", acao: "ver_auditoria", icon: "Auditoria", art: ["#2ee06a", "#0d2116"] },
 ];
