@@ -159,3 +159,42 @@ test("agenda: duas transações concorrentes no mesmo slot — uma falha por con
     await c2.end();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Regressão da acesso-018. `agendamentos_sofia_demo` tinha UNIQUE (chat_id), e
+// criarAgendamento preenche chat_id com o contato titular do paciente — então
+// o SEGUNDO agendamento de qualquer paciente com WhatsApp vinculado falhava
+// com 23505. Ficou invisível porque os fixtures deste arquivo criam paciente
+// SEM contato: chat_id fica NULL, e UNIQUE aceita N nulos.
+//
+// Este teste força o caso real (mesmo chat_id, dois horários), e a asserção
+// estrutural impede a constraint de voltar numa migration futura sem ninguém
+// perceber.
+// ---------------------------------------------------------------------------
+test("agenda: o mesmo contato pode ter dois agendamentos (chat_id não é identidade)", { skip: SKIP }, async () => {
+  const CHAT = "5511999990000@c.us";
+  const criar = (inicio: string) =>
+    owner.query<{ id: number }>(
+      `INSERT INTO agendamentos_sofia_demo
+              (clinica_id, paciente_id, profissional_id, servico_id, telefone, chat_id,
+               data_agendamento, hora_agendamento, inicio, fim, status)
+            VALUES ($1,$2,$3,$4,'11999990000',$5,
+                    ($6::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date,
+                    ($6::timestamptz AT TIME ZONE 'America/Sao_Paulo')::time,
+                    $6::timestamptz, $6::timestamptz + interval '30 min', 'confirmada')
+         RETURNING id`,
+      [clinicaA, pacienteId, profissionalId, servicoId, CHAT, inicio]
+    );
+
+  const a = await criar("2027-04-01T10:00:00-03:00");
+  const b = await criar("2027-04-08T10:00:00-03:00");
+  assert.ok(a.rows[0]?.id, "primeiro agendamento deveria entrar");
+  assert.ok(b.rows[0]?.id, "SEGUNDO agendamento do mesmo contato deveria entrar");
+
+  const c = await owner.query(
+    `SELECT 1 FROM pg_constraint
+      WHERE conrelid = 'agendamentos_sofia_demo'::regclass
+        AND contype = 'u' AND conname = 'agendamentos_sofia_demo_chat_id_key'`
+  );
+  assert.equal(c.rowCount, 0, "UNIQUE (chat_id) voltou — ver acesso-018");
+});
