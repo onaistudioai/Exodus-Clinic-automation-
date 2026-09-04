@@ -335,19 +335,30 @@ test(
 );
 
 test(
-  "solicitacao_aprovacao não tem policy restritiva por papel — confirma que a exclusão acima não está escondendo um buraco maior",
+  "solicitacao_aprovacao tem policy RESTRICTIVE por papel para ver_solicitacoes (dívida #10 resolvida — acesso-015)",
   { skip: SKIP },
   async () => {
     await comoDono();
-    const r = await db.query<{ qual: string | null; with_check: string | null }>(
-      `SELECT qual, with_check FROM pg_policies WHERE schemaname = 'public' AND tablename = 'solicitacao_aprovacao'`
+    const r = await db.query<{
+      policyname: string;
+      permissive: string;
+      cmd: string;
+      qual: string | null;
+    }>(
+      `SELECT policyname, permissive, cmd, qual FROM pg_policies
+        WHERE schemaname = 'public' AND tablename = 'solicitacao_aprovacao'`
     );
-    for (const row of r.rows) {
-      const texto = `${row.qual ?? ""} ${row.with_check ?? ""}`;
-      assert.ok(
-        !texto.includes("papel_acao"),
-        "achou uma policy de papel em solicitacao_aprovacao que este arquivo não sabia existir — a exclusão de ver_solicitacoes da matriz ficou desatualizada"
-      );
-    }
+
+    const policiasDePapel = r.rows.filter((row) => (row.qual ?? "").includes("papel_acao"));
+    assert.equal(
+      policiasDePapel.length,
+      1,
+      "esperava exatamente 1 policy referenciando papel_acao em solicitacao_aprovacao (acesso-015) — se sumiu, a dívida #10 voltou a ficar aberta"
+    );
+
+    const policy = policiasDePapel[0]!;
+    assert.equal(policy.permissive, "RESTRICTIVE", "a policy de papel tem de ser RESTRICTIVE — PERMISSIVE só adiciona acesso, nunca estreita (RETOMADA §3, armadilha 1)");
+    assert.equal(policy.cmd, "SELECT", "esta policy cobre só leitura — INSERT/UPDATE de solicitarAprovacaoPacientePg continuam sob rls_tenant, sem RESTRICTIVE nova");
+    assert.ok(policy.qual?.includes("ver_solicitacoes"), `qual deveria checar a ação 'ver_solicitacoes' — veio: ${policy.qual}`);
   }
 );
