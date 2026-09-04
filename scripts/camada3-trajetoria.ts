@@ -140,6 +140,23 @@ interface Resultado {
   erro: string | null;
 }
 
+// ponytail: backoff SÓ para 429 do provedor — o plano free do Groq rejeita uma
+// rajada de 25 chamadas seguidas, e sem isso o relatório vira 16 linhas de
+// "erro de rede" que não dizem nada sobre trajetória. Não é retry genérico:
+// qualquer outro erro sobe na hora, senão uma falha real se disfarça de
+// tentativa. Teto ~62s por caso; se ainda bater 429, o caso reporta o erro.
+async function comBackoff<T>(fn: () => Promise<T>, tentativas = 5): Promise<T> {
+  for (let i = 0; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!msg.includes("429") || i >= tentativas) throw e;
+      await new Promise((r) => setTimeout(r, 2000 * 2 ** i));
+    }
+  }
+}
+
 async function main() {
   if (!process.env.GROQ_API_KEY) {
     console.error(
@@ -162,7 +179,7 @@ async function main() {
     ];
 
     try {
-      const resposta = await chamarLLM(mensagens, ferramentas);
+      const resposta = await comBackoff(() => chamarLLM(mensagens, ferramentas));
       const chamada = resposta.tool_calls[0];
       const ferramentaEscolhida = chamada?.function.name ?? null;
       const ferramentaOk = ferramentaEscolhida === caso.esperado;
