@@ -61,6 +61,12 @@ function makePool(): Pool {
     statement_timeout: 15_000,
     query_timeout: 15_000,
     idle_in_transaction_session_timeout: 20_000,
+    // INCOMPATÍVEL COM A CONNECTION STRING POOLED DO NEON. O pooler recusa
+    // parâmetros de startup que não conhece e devolve "unsupported startup
+    // parameter", derrubando TODA query — não só as que dependem do timeout.
+    // DATABASE_URL tem de apontar para o host direto (o mesmo endereço sem
+    // `-pooler`), que é justamente o que o console do Neon NÃO destaca para
+    // copiar. Ver a nota em .env.local.example. Custou um deploy para descobrir.
     options: "-c lock_timeout=5000",
   });
 }
