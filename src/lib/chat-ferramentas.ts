@@ -37,7 +37,7 @@ export interface Ferramenta {
   descricao: string;
   parametros: {
     type: "object";
-    properties: Record<string, { type: string; description: string }>;
+    properties: Record<string, { type: string | string[]; description: string }>;
     required: string[];
   };
   executar: (
@@ -109,8 +109,12 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
       type: "object",
       properties: {
         estagio: {
-          type: "string",
-          description: "Filtra por estágio: inadimplente, inativo, em_tratamento, novo ou ativo. Omitir para ver todos.",
+          // "null" além de "string": pedido "todos os estágios", o modelo manda
+          // estagio:null em vez de omitir a chave, e a Groq valida o schema
+          // estrito — a chamada inteira morria com 400 tool_use_failed.
+          // Achado na camada 3 (2026-09-03). `executar` já trata: null é falsy.
+          type: ["string", "null"],
+          description: "Filtra por estágio: inadimplente, inativo, em_tratamento, novo ou ativo. Omitir (ou null) para ver todos.",
         },
       },
       required: [],
@@ -169,7 +173,9 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
       properties: {
         loteId: { type: "number", description: "Id do lote conferido" },
         quantidadeContada: { type: "number", description: "Quantidade encontrada na contagem" },
-        observacao: { type: "string", description: "Motivo do ajuste" },
+        // Mesma exposição do `estagio` de consultar_crm: parâmetro opcional que
+        // o modelo tende a mandar como null em vez de omitir. `executar` trata.
+        observacao: { type: ["string", "null"], description: "Motivo do ajuste" },
       },
       required: ["loteId", "quantidadeContada"],
     },
