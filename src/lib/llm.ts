@@ -9,13 +9,18 @@ import "server-only";
  * linhas abaixo. Um pacote a mais no bundle do painel é uma superfície a mais
  * para auditar num sistema que carrega dado de saúde.
  *
- * O modelo é o MESMO que a SOFIA já usa no n8n (llama-3.3-70b-versatile). Dois
- * modelos diferentes respondendo pela mesma clínica seria a divergência de
- * sempre, agora em comportamento em vez de em lista.
+ * MODELO: era llama-3.3-70b-versatile, DESCONTINUADO pela Groq — devolvia 404
+ * em toda chamada (achado em 2026-09-03 rodando a camada 3). Trocado por
+ * openai/gpt-oss-120b, validado nos 25 casos-âncora de trajetória.
+ * ATENÇÃO: os workflows da SOFIA no n8n (sofia-demo/n8n/*.json) ainda apontam
+ * para o modelo morto. O n8n está fora do ar desde 2026-07-27, então não
+ * quebra nada hoje — mas quando voltar precisa receber ESTE mesmo modelo.
+ * Dois modelos diferentes respondendo pela mesma clínica seria a divergência
+ * de sempre, agora em comportamento em vez de em lista.
  */
 
 const ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-const MODELO = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const MODELO = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 
 export interface Mensagem {
   role: "system" | "user" | "assistant" | "tool";
@@ -37,7 +42,7 @@ export interface FerramentaExposta {
     description: string;
     parameters: {
       type: "object";
-      properties: Record<string, { type: string; description: string }>;
+      properties: Record<string, { type: string | string[]; description: string }>;
       required: string[];
     };
   };
