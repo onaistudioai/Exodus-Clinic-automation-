@@ -453,7 +453,15 @@ async function main() {
     console.log(`    2 pessoas na lista de espera para toxina`);
     console.log(`    R$ 1.840 vencidos em 3 cobranças — a maior é de quem cancelou a quinta`);
     console.log(`    2 escalonamentos abertos (1 com prazo estourado)`);
-    console.log(`\n  Pergunte no /chat: "o que vagou essa semana e quem eu chamo para preencher?"\n`);
+    // "próximos dias", NÃO "essa semana": proximo(quinta)/proximo(sexta) contam
+    // a partir de amanhã, então semear numa sexta joga os dois buracos para a
+    // semana seguinte. O modelo confere as datas recebidas contra a janela que
+    // pediu e responde — corretamente — que nada vagou "essa semana"; quem
+    // estaria errada é a pergunta, descrevendo um dado diferente do que este
+    // script criou. Medido em 2026-09-05.
+    console.log(
+      `\n  Pergunte no /chat: "o que vagou nos próximos dias e quem eu chamo para preencher?"\n`
+    );
   } catch (e) {
     await client.query("ROLLBACK").catch(() => {});
     throw e;

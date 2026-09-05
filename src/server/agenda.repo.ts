@@ -440,3 +440,89 @@ export async function indicadores(
     ocupacao_pct: disp > 0 ? Math.min(1, m.minutos_agendados / disp) : 0,
   };
 }
+
+/**
+ * Agenda de um INTERVALO de datas, inclusivo nas duas pontas.
+ *
+ * Existe porque `agendaDoDia` recebe uma data só, e toda pergunta com escopo de
+ * semana obrigava o modelo a chamar a ferramenta cinco vezes — o que estourava
+ * o MAX_VOLTAS do chat antes de sobrar orçamento para qualquer outra ferramenta.
+ * Achado em produção em 2026-09-05: perguntado "o que vagou essa semana e quem
+ * eu chamo para preencher?", o modelo chamou consultar_agenda_do_dia 5x
+ * seguidas e desistiu. Ele estava certo; faltava a ferramenta.
+ *
+ * NÃO filtra status, igual `agendaDoDia`: é justamente a linha `cancelada` que
+ * responde "o que vagou". Filtrar aqui esconderia a pergunta.
+ *
+ * `limite` protege o contexto do modelo — uma janela larga numa clínica cheia
+ * devolveria mais linhas do que cabe na conversa.
+ */
+export async function agendaDoPeriodo(
+  tx: Tx,
+  de: string,
+  ate: string,
+  limite = 200
+): Promise<AgendamentoDia[]> {
+  const { rows } = await tx.query<AgendamentoDia>(
+    `SELECT ${SELECT_AGENDA_DIA}
+       FROM agendamentos_sofia_demo a
+       LEFT JOIN pacientes pac ON pac.id = a.paciente_id
+        AND pac.clinica_id = current_setting('app.clinica_id')::int
+       LEFT JOIN profissionais pro ON pro.id = a.profissional_id
+       LEFT JOIN servicos s ON s.id = a.servico_id
+      WHERE a.clinica_id = current_setting('app.clinica_id')::int
+        AND a.inicio IS NOT NULL
+        AND (a.inicio AT TIME ZONE ${TZ})::date BETWEEN $1::date AND $2::date
+      ORDER BY a.inicio, pro.nome
+      LIMIT $3`,
+    [de, ate, limite]
+  );
+  return rows;
+}
+
+export interface EsperandoVaga {
+  id: number;
+  paciente_id: number;
+  paciente_nome: string | null;
+  servico_id: number;
+  servico_nome: string | null;
+  profissional_id: number | null;
+  profissional_nome: string | null;
+  /** 'manha' | 'tarde' | 'qualquer' */
+  disponibilidade: string;
+  expira_em: string | null;
+}
+
+/**
+ * Quem está esperando vaga. É a outra metade de "o que vagou": sem isto, saber
+ * que um horário abriu não diz a ninguém quem chamar.
+ *
+ * `profissional_id` nulo na lista significa "qualquer profissional serve" — por
+ * isso o filtro opcional casa nulo TAMBÉM quando um profissional é informado,
+ * senão quem aceita qualquer um sumiria justamente da busca por um específico.
+ */
+export async function listaDeEspera(
+  tx: Tx,
+  filtro: { servicoId?: number; profissionalId?: number } = {}
+): Promise<EsperandoVaga[]> {
+  const { rows } = await tx.query<EsperandoVaga>(
+    `SELECT le.id, le.paciente_id, pac.nome_completo AS paciente_nome,
+            le.servico_id, s.nome AS servico_nome,
+            le.profissional_id, pro.nome AS profissional_nome,
+            le.disponibilidade,
+            to_char(le.expira_em,'YYYY-MM-DD') AS expira_em
+       FROM lista_espera le
+       LEFT JOIN pacientes pac ON pac.id = le.paciente_id
+        AND pac.clinica_id = current_setting('app.clinica_id')::int
+       LEFT JOIN servicos s ON s.id = le.servico_id
+       LEFT JOIN profissionais pro ON pro.id = le.profissional_id
+      WHERE le.clinica_id = current_setting('app.clinica_id')::int
+        AND le.ativo
+        AND (le.expira_em IS NULL OR le.expira_em >= current_date)
+        AND ($1::int IS NULL OR le.servico_id = $1)
+        AND ($2::int IS NULL OR le.profissional_id = $2 OR le.profissional_id IS NULL)
+      ORDER BY le.criado_em`,
+    [filtro.servicoId ?? null, filtro.profissionalId ?? null]
+  );
+  return rows;
+}

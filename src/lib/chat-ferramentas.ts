@@ -91,6 +91,56 @@ export const FERRAMENTAS: Record<string, Ferramenta> = {
     executar: async (tx, a) => agenda.agendaDoDia(tx, String(a.data)),
   },
 
+  // Sem esta, toda pergunta com escopo de semana forçava o modelo a chamar
+  // consultar_agenda_do_dia um dia de cada vez — cinco chamadas, que é o
+  // MAX_VOLTAS inteiro do chat, sem sobrar orçamento para mais nada. Medido em
+  // produção em 2026-09-05.
+  consultar_agenda_periodo: {
+    acao: "ver_agenda",
+    descricao:
+      "Mostra os agendamentos de um intervalo de datas (inclusive as duas pontas). Use para perguntas de semana ou mês em vez de repetir a consulta dia a dia. Inclui os cancelados — é assim que se descobre qual horário vagou.",
+    parametros: {
+      type: "object",
+      properties: {
+        de: { type: "string", description: "Primeira data, AAAA-MM-DD" },
+        ate: { type: "string", description: "Última data, AAAA-MM-DD" },
+      },
+      required: ["de", "ate"],
+    },
+    executar: async (tx, a) => agenda.agendaDoPeriodo(tx, String(a.de), String(a.ate)),
+  },
+
+  // A outra metade de "o que vagou": saber que um horário abriu não diz a
+  // ninguém quem chamar.
+  consultar_lista_espera: {
+    acao: "ver_agenda",
+    descricao:
+      "Lista quem está esperando vaga, com o serviço e o turno que a pessoa aceita. Use junto com a agenda para saber quem chamar quando um horário vaga.",
+    parametros: {
+      type: "object",
+      properties: {
+        // ["integer","null"]: parâmetro opcional que o modelo tende a mandar
+        // como null em vez de omitir, e a Groq valida schema estrito — mesma
+        // exposição já paga em `estagio` de consultar_crm.
+        servicoId: {
+          type: ["integer", "null"],
+          description: "Filtra por serviço. Omitir (ou null) para ver todos.",
+        },
+        profissionalId: {
+          type: ["integer", "null"],
+          description:
+            "Filtra por profissional. Quem aceita qualquer profissional aparece mesmo assim.",
+        },
+      },
+      required: [],
+    },
+    executar: async (tx, a) =>
+      agenda.listaDeEspera(tx, {
+        servicoId: a.servicoId ? Number(a.servicoId) : undefined,
+        profissionalId: a.profissionalId ? Number(a.profissionalId) : undefined,
+      }),
+  },
+
   consultar_pedidos_de_aprovacao: {
     acao: "ver_solicitacoes",
     descricao: "Lista os pedidos de aprovação pendentes da clínica.",

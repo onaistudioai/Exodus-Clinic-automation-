@@ -59,6 +59,20 @@ const ID = (v: unknown) => (typeof v === "number" || /^\d+$/.test(String(v)));
 const NAO_VAZIO = (v: unknown) => typeof v === "string" && v.trim().length > 0;
 
 const CASOS: Caso[] = [
+  // --------------------------------------------- escopo além de um dia só
+  // Casos acrescentados em 2026-09-05 junto com as ferramentas novas. Cobrem o
+  // buraco que derrubou o cenário de demonstração em produção: perguntas de
+  // SEMANA e de "quem eu chamo" não tinham ferramenta, e o modelo gastava as 5
+  // voltas do chat chamando consultar_agenda_do_dia um dia de cada vez.
+  //
+  // Mede a PRIMEIRA ferramenta escolhida, como o resto do arquivo — não a
+  // trajetória multi-passo inteira, que este harness não pontua. A prova de
+  // encadeamento é o app rodando.
+  { pergunta: "O que vagou na agenda nos próximos dias?", esperado: "consultar_agenda_periodo" },
+  { pergunta: "Me mostra a agenda da semana que vem inteira.", esperado: "consultar_agenda_periodo" },
+  { pergunta: "Quem está na lista de espera esperando vaga?", esperado: "consultar_lista_espera" },
+  { pergunta: "Abriu um horário de toxina quinta à tarde. Quem eu chamo?", esperado: "consultar_lista_espera" },
+
   // ------------------------------------------------------------- leitura
   { pergunta: "Quais produtos estão com estoque baixo ou perto de vencer?", esperado: "consultar_estoque" },
   { pergunta: "Precisamos repor algum produto? Mostra os alertas do estoque.", esperado: "consultar_estoque" },
