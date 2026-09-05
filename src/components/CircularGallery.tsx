@@ -143,6 +143,8 @@ interface MediaProps {
 
 class Media {
   extra = 0;
+  /** Impede que a ancoragem inicial do anel rode de novo a cada resize. */
+  ancorado = false;
   geometry!: Plane;
   gl!: GL;
   image!: string;
@@ -311,17 +313,20 @@ class Media {
       this.viewport = viewport;
       this.program.uniforms.uViewportSizes;
     }
-    // O card era `screen.height / 1500`, e a referência de 1500px é maior que
-    // qualquer viewport real — então o card SEMPRE nascia encolhido, e piorava
-    // conforme a altura caía. Em zoom 125% a viewport CSS de uma tela 1080p vira
-    // ~864px: a escala despencava de 0.72 para 0.58, e os cards ficavam
-    // visivelmente pequenos. Não era ajuste de gosto, era a referência errada.
+    // O card ocupa esta FRAÇÃO DA ALTURA DO CONTÊINER. É proporção, não tamanho
+    // fixo: `screen` é o contêiner, que encolhe quando o usuário aumenta o zoom,
+    // então o card acompanha sozinho. Era o que a fórmula original já fazia
+    // (`screen.height / 1500` = 60% da altura), e foi o que eu quebrei ao trocar
+    // por uma referência fixa com piso: em contêiner de 664px o card virou 675px
+    // — mais alto que o espaço disponível. Daí ele cortar no meio e o título,
+    // que é posicionado ABAIXO do card, sair da tela.
     //
-    // Referência menor (1200) e piso de altura (900): o piso impede que zoom
-    // alto ou janela baixa continuem encolhendo indefinidamente — abaixo de
-    // 900px de viewport o card para de diminuir em vez de sumir.
-    const alturaRef = Math.max(this.screen.height, 900);
-    this.scale = alturaRef / 1200;
+    // Teto: o título mede `plane.scale.y * 0.15` e fica abaixo do card, então o
+    // conjunto ocupa `altura * 0.65` a partir do centro. Passar de ~0.77 corta o
+    // título de novo. 0.66 é 10% maior que os 60% originais, com folga para o
+    // arco do `bend`, que empurra os cards das pontas para baixo.
+    const FRACAO_DA_ALTURA = 0.66;
+    this.scale = (this.screen.height * FRACAO_DA_ALTURA) / 900;
     this.plane.scale.y = (this.viewport.height * (900 * this.scale)) / this.screen.height;
     this.plane.scale.x = (this.viewport.width * (700 * this.scale)) / this.screen.width;
     this.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y];
@@ -329,6 +334,23 @@ class Media {
     this.width = this.plane.scale.x + this.padding;
     this.widthTotal = this.width * this.length;
     this.x = this.width * this.index;
+
+    // Ancoragem inicial do anel. Sem isto, `x = width * index` põe o item 0 no
+    // centro e TODOS os outros à direita dele — a metade esquerda da tela nasce
+    // vazia, e só se preenche depois do primeiro arraste, porque o wrap para a
+    // esquerda só roda quando `direction === "left"`.
+    //
+    // A correção mora no `extra`, não no `x`: o clique deriva o item de
+    // `Math.round(scroll.current / width)`, que assume o item 0 no centro em
+    // scroll 0. Deslocar `x` centralizaria a vitrine e faria o clique abrir o
+    // módulo errado. `extra` é deslocamento de wrap e o clique não o consulta.
+    //
+    // Só na primeira medição: em redimensionamento depois, mexer aqui daria um
+    // salto no meio da rolagem.
+    if (!this.ancorado) {
+      this.ancorado = true;
+      if (this.x > this.widthTotal / 2) this.extra = this.widthTotal;
+    }
   }
 }
 
