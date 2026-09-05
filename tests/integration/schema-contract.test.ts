@@ -90,3 +90,61 @@ test("o contrato de payload não vazou campo clínico", { skip: !URL && "sem DAT
     }
   }
 });
+
+/**
+ * Toda SECURITY DEFINER do banco tem de estar em `funcao_alcance`.
+ *
+ * A regra não é nova — `.planning/camada-a-v2/sql/009-contract-test-fonte-unica.sql`
+ * já a impunha. O que faltava era alguém a executar CONTRA O BANCO VIVO: aquele
+ * contract-test roda pelo `scripts/test-db.mjs`, que monta um banco de teste do
+ * zero, então uma função criada direto em produção passava despercebida.
+ *
+ * E passou: `fn_identidade_bootstrap` era DEFINER desde a acesso-007 e ficou
+ * fora do inventário até 2026-09-05, sem nada acusar. Uma DEFINER não
+ * inventariada é uma porta que escapa da RLS e que ninguém declarou — a coisa
+ * exata que o inventário existe para tornar impossível de esquecer.
+ */
+test("nenhuma SECURITY DEFINER fora do inventário de alcance", { skip: !URL && "sem DATABASE_URL" }, async () => {
+  const { rows } = await client.query<{ proname: string }>(
+    `SELECT p.proname
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       LEFT JOIN funcao_alcance fa ON fa.funcao = p.proname
+      WHERE n.nspname = 'public' AND p.prosecdef AND fa.funcao IS NULL
+      ORDER BY p.proname`
+  );
+  assert.deepEqual(
+    rows.map((r) => r.proname),
+    [],
+    "função SECURITY DEFINER sem linha em funcao_alcance — declare o alcance ('tenant' ou 'cross_tenant') na migration que a criou"
+  );
+});
+
+/**
+ * O canal que resolve o tenant de uma mensagem de WhatsApp (acesso-019).
+ * Sem estas travas, duas clínicas podem apontar para a mesma sessão e a
+ * mensagem cai na clínica errada conforme a ordem do plano de execução.
+ */
+test("clinica_canal tem as duas unicidades e a RLS", { skip: !URL && "sem DATABASE_URL" }, async () => {
+  const idx = await client.query<{ indexname: string; indexdef: string }>(
+    `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'clinica_canal'`
+  );
+  const defs = idx.rows.map((r) => r.indexdef).join("\n");
+
+  assert.match(
+    defs,
+    /UNIQUE.*\(provedor, identificador\)/,
+    "falta a unicidade (provedor, identificador): um identificador tem de pertencer a uma clínica só"
+  );
+  assert.match(
+    defs,
+    /UNIQUE.*\(clinica_id, canal\)\s*WHERE ativo/,
+    "falta a unicidade parcial (clinica_id, canal) WHERE ativo: uma clínica tem um canal ativo"
+  );
+
+  const rls = await client.query<{ on: boolean; forced: boolean }>(
+    `SELECT relrowsecurity AS on, relforcerowsecurity AS forced
+       FROM pg_class WHERE relname = 'clinica_canal'`
+  );
+  assert.ok(rls.rows[0]?.on && rls.rows[0]?.forced, "clinica_canal precisa de RLS ligada E forçada");
+});

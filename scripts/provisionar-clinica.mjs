@@ -16,7 +16,14 @@
  * Uso:
  *   node scripts/provisionar-clinica.mjs \
  *     --nome "Clínica X" --slug clinica-x \
- *     --admin-email pessoa@exemplo.com --admin-nome "Fulana" [--timezone America/Belem]
+ *     --admin-email pessoa@exemplo.com --admin-nome "Fulana" \
+ *     [--timezone America/Belem] \
+ *     [--wa-provedor waha --wa-id sofia-x --wa-numero +5511999999999]
+ *
+ * O canal de WhatsApp é opcional: uma clínica pode existir sem ele (o painel
+ * funciona inteiro). Mas sem canal ela NÃO recebe mensagem — é a linha em
+ * `clinica_canal` que diz de qual clínica é uma mensagem que chega, e essa
+ * resolução acontece antes de existir tenant (acesso-019).
  *
  * Idempotente: rodar duas vezes não duplica nem sobrescreve. Se a clínica ou o
  * usuário já existirem, avisa e não mexe — em particular NÃO reseta a senha de
@@ -62,6 +69,15 @@ function validar(a) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a["admin-email"] ?? ""))
     erros.push("--admin-email inválido");
   if (!a["admin-nome"]?.trim()) erros.push("--admin-nome é obrigatório");
+
+  // Canal é opcional (clínica pode existir sem WhatsApp), mas se vier tem de
+  // vir inteiro: um identificador sem provedor não resolve tenant nenhum.
+  const temProvedor = Boolean(a["wa-provedor"]);
+  const temId = Boolean(a["wa-id"]);
+  if (temProvedor !== temId)
+    erros.push("--wa-provedor e --wa-id andam juntos: um sem o outro não resolve tenant");
+  if (temProvedor && !["waha", "meta"].includes(String(a["wa-provedor"])))
+    erros.push("--wa-provedor precisa ser 'waha' ou 'meta'");
   return erros;
 }
 
@@ -72,7 +88,9 @@ async function main() {
     console.error("provisionar-clinica: " + erros.join("\n                     "));
     console.error(
       '\nUso: node scripts/provisionar-clinica.mjs --nome "Clínica X" --slug clinica-x \\\n' +
-        '       --admin-email pessoa@exemplo.com --admin-nome "Fulana" [--timezone America/Sao_Paulo]'
+        '       --admin-email pessoa@exemplo.com --admin-nome "Fulana" \\\n' +
+        "       [--timezone America/Sao_Paulo] \\\n" +
+        "       [--wa-provedor waha|meta --wa-id <sessão ou phone_number_id> --wa-numero +55...]"
     );
     process.exit(1);
   }
@@ -119,10 +137,34 @@ async function main() {
       [clinicaId, a["admin-nome"].trim(), a["admin-email"].trim(), senhaHash]
     );
 
+    // Canal de WhatsApp (acesso-019). Sem esta linha, uma mensagem que chegue
+    // para esta clínica não tem como saber que é dela — a resolução de tenant
+    // acontece ANTES de existir tenant, e é esta tabela que a sustenta.
+    let canal = null;
+    if (a["wa-provedor"]) {
+      const r = await client.query(
+        `INSERT INTO clinica_canal (clinica_id, provedor, identificador, numero_e164)
+              VALUES ($1, $2, $3, $4)
+           ON CONFLICT (provedor, identificador) DO NOTHING
+        RETURNING id`,
+        [clinicaId, a["wa-provedor"], String(a["wa-id"]).trim(), a["wa-numero"]?.trim() || null]
+      );
+      canal = r.rows[0]?.id ?? "conflito";
+    }
+
     await client.query("COMMIT");
 
     const adminNovo = usuario.rows.length > 0;
     console.log(`\nclínica  #${clinicaId} ${a.nome.trim()} (${a.slug})${clinicaNova ? "" : "  [já existia, reaproveitada]"}`);
+    if (canal === "conflito") {
+      console.log(
+        `canal    ${a["wa-provedor"]}:${a["wa-id"]}  [JÁ PERTENCE A OUTRA CLÍNICA — nada foi alterado]`
+      );
+    } else if (canal) {
+      console.log(`canal    #${canal} ${a["wa-provedor"]}:${a["wa-id"]}`);
+    } else {
+      console.log(`canal    (nenhum) — esta clínica não recebe WhatsApp até ter um`);
+    }
 
     if (adminNovo) {
       console.log(`admin    #${usuario.rows[0].id} ${a["admin-email"].trim()}`);
