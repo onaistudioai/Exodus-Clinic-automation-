@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { forbidden } from "next/navigation";
 import { pool } from "@/lib/db";
 import { verifySession } from "@/lib/dal";
 import type { Acao, Papel } from "@/lib/rbac-matriz";
@@ -53,12 +54,25 @@ export const permissoes = cache(async (): Promise<Permissoes> => {
   };
 });
 
-/** Gate de servidor: lança se a sessão não tem o papel para a ação. */
+/**
+ * Gate de servidor: interrompe a renderização se a sessão não tem o papel para
+ * a ação.
+ *
+ * `forbidden()` em vez de `throw new Error`: o throw comum virava HTTP 500 com
+ * a página genérica de crash do Next. A negação estava certa — nada vazava —
+ * mas apresentada como falha do sistema, o que confunde quem tem direito a
+ * saber que só não tem permissão, e mascara erro de verdade quando acontecer.
+ * `forbidden()` devolve 403 e renderiza `app/forbidden.tsx`.
+ *
+ * Não dá para fazer isso com um `error.tsx` casando a mensagem: em produção o
+ * Next apaga a mensagem antes de entregá-la ao boundary (sobra só o `digest`).
+ * Funcionaria em dev e falharia em prod.
+ *
+ * Requer `experimental.authInterrupts` em next.config.ts — ver o comentário lá.
+ */
 export async function requireAcao(acao: Acao): Promise<void> {
-  const { papel, pode } = await permissoes();
-  if (!pode(acao)) {
-    throw new Error(`Acesso negado: papel '${papel}' não pode '${acao}'.`);
-  }
+  const { pode } = await permissoes();
+  if (!pode(acao)) forbidden();
 }
 
 /**

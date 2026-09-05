@@ -30,6 +30,28 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  experimental: {
+    /**
+     * Libera `forbidden()` de next/navigation + a convenção `app/forbidden.tsx`,
+     * usados por `requireAcao()` (src/lib/rbac.ts).
+     *
+     * Por que a flag experimental foi aceita: antes disso, `requireAcao` lançava
+     * um Error comum e o Next respondia HTTP 500 com a página genérica "This
+     * page couldn't load" — negação correta (nada vazava), apresentação de
+     * crash. Achado na verificação pós-deploy de 2026-09-05, acessando
+     * /admin/usuarios como recepção.
+     *
+     * Por que não um `error.tsx` casando a mensagem: em produção o Next APAGA a
+     * mensagem antes de entregá-la ao boundary — sobra só o `digest`. Distinguir
+     * "sem permissão" de "quebrou" por texto funciona em dev e falha em prod,
+     * que é a pior combinação possível.
+     *
+     * Risco contido: se a flag sumir num upgrade, `forbidden()` volta a ser um
+     * throw não tratado e o comportamento degrada para o 500 de hoje — nunca
+     * para acesso concedido.
+     */
+    authInterrupts: true,
+  },
   // Não vazar framework/versão para quem faz fingerprint.
   poweredByHeader: false,
   async headers() {
