@@ -117,8 +117,15 @@ export default function DashboardShowcase({
               bend={2.5}
               textColor="#eafff0"
               borderRadius={0.06}
-              scrollEase={0.05}
-              font="bold 30px sans-serif"
+              // 0.025 (era 0.05): o `ease` é o fator de interpolação por quadro
+              // — metade dele dobra o tempo até a vitrine assentar no destino.
+              // É o "0.5x" da animação de deslize.
+              scrollEase={0.025}
+              // Fonte acompanha o card maior; 30px ficava desproporcional.
+              font="bold 38px sans-serif"
+              // `scrollSpeed` NÃO é velocidade de animação, é quanto cada giro
+              // da roda avança. Mantido em 2: reduzir aqui deixaria a vitrine
+              // menos responsiva ao gesto, não mais lenta.
               scrollSpeed={2}
               onItemClick={(i) => router.push(modulos[i].href)}
             />

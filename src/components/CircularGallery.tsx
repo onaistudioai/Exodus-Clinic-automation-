@@ -285,7 +285,10 @@ class Media {
     }
 
     this.speed = scroll.current - scroll.last;
-    this.program.uniforms.uTime.value += 0.04;
+    // 0.02 (era 0.04): metade da velocidade da animação do shader. O relógio é
+    // incrementado por QUADRO, não por tempo real, então este número é a
+    // velocidade — reduzir pela metade é literalmente 0.5x.
+    this.program.uniforms.uTime.value += 0.02;
     this.program.uniforms.uSpeed.value = this.speed;
 
     const planeOffset = this.plane.scale.x / 2;
@@ -308,7 +311,17 @@ class Media {
       this.viewport = viewport;
       this.program.uniforms.uViewportSizes;
     }
-    this.scale = this.screen.height / 1500;
+    // O card era `screen.height / 1500`, e a referência de 1500px é maior que
+    // qualquer viewport real — então o card SEMPRE nascia encolhido, e piorava
+    // conforme a altura caía. Em zoom 125% a viewport CSS de uma tela 1080p vira
+    // ~864px: a escala despencava de 0.72 para 0.58, e os cards ficavam
+    // visivelmente pequenos. Não era ajuste de gosto, era a referência errada.
+    //
+    // Referência menor (1200) e piso de altura (900): o piso impede que zoom
+    // alto ou janela baixa continuem encolhendo indefinidamente — abaixo de
+    // 900px de viewport o card para de diminuir em vez de sumir.
+    const alturaRef = Math.max(this.screen.height, 900);
+    this.scale = alturaRef / 1200;
     this.plane.scale.y = (this.viewport.height * (900 * this.scale)) / this.screen.height;
     this.plane.scale.x = (this.viewport.width * (700 * this.scale)) / this.screen.width;
     this.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y];
