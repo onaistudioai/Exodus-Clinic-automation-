@@ -68,8 +68,10 @@
   --shadow-glow: 0 4px 16px -8px rgb(21 163 58 / 0.22);
   --shadow-glow-violet: 0 6px 22px -12px rgb(21 163 58 / 0.28);
 
-  /* Fonte — Elms Sans (Google Fonts, carregada via <link> no root layout) */
-  --font-sans: "Elms Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Fonte — Elms Sans, auto-hospedada por next/font/google (ver app/layout.tsx).
+     `--font-elms` é declarada pelo next/font no <html>; a cadeia de fallback
+     continua aqui porque a variável some se o build da fonte falhar. */
+  --font-sans: var(--font-elms), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 :root {
