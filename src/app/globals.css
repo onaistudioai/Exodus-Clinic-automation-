@@ -230,11 +230,6 @@ body {
    O `color-mix` deriva de `--background` em vez de fixar cor: a barra não pinta
    nada próprio, só borra o que passa por baixo. Se o canvas mudar de cor um
    dia, a barra acompanha sem ninguém lembrar de vir aqui. */
-.barra-blur {
-  background: color-mix(in srgb, var(--background) 72%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-}
 
 /* Header glass do shell claro */
 .header-glass {
@@ -432,6 +427,10 @@ body {
  * elementos sem borda; 3 verdes predominantes.
  * ─────────────────────────────────────────────────────────────── */
 
+.painel-shell {
+  min-height: 100vh;
+  transition: padding 0.3s ease;
+}
 .demo-shell {
   min-height: 100vh;
   background: var(--color-canvas);
@@ -440,8 +439,8 @@ body {
 /* Modo parede: reserva espaço lateral pro painel encostado (só em telas largas)
  * e faz o conteúdo do módulo encostar no menu (sem centralizar/vão grande). */
 @media (min-width: 1024px) {
-  [data-menu="parede"][data-menuside="left"] .demo-shell { padding-left: 15rem; }
-  [data-menu="parede"][data-menuside="right"] .demo-shell { padding-right: 15rem; }
+  [data-menu="parede"][data-menuside="left"] :is(.demo-shell, .painel-shell) { padding-left: 15rem; }
+  [data-menu="parede"][data-menuside="right"] :is(.demo-shell, .painel-shell) { padding-right: 15rem; }
   [data-menu="parede"] .demo-content {
     margin-left: 0;
     margin-right: 0;
@@ -511,42 +510,42 @@ body {
 /* ── Menu FLUTUANTE (vidro, recolhe pra um botão) ──
  * Blur forte o bastante pra manter o texto nítido, mas sem cor sólida.
  * O painel expandido e o botão recolhido compartilham o mesmo vidro. */
-.demo-glass {
+.menu-vidro {
   background: rgb(255 255 255 / 0.14);
   backdrop-filter: blur(26px) saturate(150%);
   -webkit-backdrop-filter: blur(26px) saturate(150%);
   box-shadow: 0 12px 40px -16px rgb(10 31 19 / 0.35);
 }
-[data-theme="dark"] .demo-glass {
+[data-theme="dark"] .menu-vidro {
   background: rgb(10 31 19 / 0.32);
 }
 
 /* Recolhe/expande de forma fluida */
-.demo-menu-panel {
+.menu-painel {
   transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0.32s;
 }
-.demo-menu-panel[data-open="false"] {
+.menu-painel[data-open="false"] {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
-.demo-menu-panel[data-side="left"][data-open="false"] { transform: translateX(-12px) scale(0.98); }
-.demo-menu-panel[data-side="right"][data-open="false"] { transform: translateX(12px) scale(0.98); }
-.demo-menu-panel[data-open="true"] { opacity: 1; transform: translateX(0) scale(1); }
+.menu-painel[data-side="left"][data-open="false"] { transform: translateX(-12px) scale(0.98); }
+.menu-painel[data-side="right"][data-open="false"] { transform: translateX(12px) scale(0.98); }
+.menu-painel[data-open="true"] { opacity: 1; transform: translateX(0) scale(1); }
 
-.demo-menu-btn {
+.menu-btn {
   transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.demo-menu-btn[data-hidden="true"] {
+.menu-btn[data-hidden="true"] {
   opacity: 0;
   transform: scale(0.9);
   pointer-events: none;
 }
 
-.demo-navitem {
+.menu-item {
   position: relative;
   display: flex;
   align-items: center;
@@ -557,24 +556,47 @@ body {
   font-weight: 500;
   color: var(--color-ink-700);
 }
-.demo-navitem:hover {
+[data-tom="escuro"] .menu-item {
+  color: #cfe3d8;
+}
+[data-tom="escuro"] .menu-vidro,
+.menu-btn[data-tom="escuro"] {
+  background: rgb(10 31 19 / 0.55);
+}
+.menu-btn[data-tom="escuro"] {
+  color: #cfe3d8;
+}
+.menu-botaozinho {
+  color: var(--color-ink-500);
+}
+.menu-botaozinho:hover {
+  background: rgb(21 163 58 / 0.1);
+  color: var(--color-brand-700);
+}
+[data-tom="escuro"] .menu-botaozinho {
+  color: #9fbdad;
+}
+[data-tom="escuro"] .menu-botaozinho:hover {
+  color: #cfe3d8;
+}
+.menu-item:hover {
   color: var(--hi);
   background: rgb(21 163 58 / 0.1);
   padding-left: 1.05rem;
 }
-.demo-navitem--active {
+.menu-item--ativo {
   color: #fff;
   background: linear-gradient(105deg, var(--green-core), var(--green-vivid));
 }
-.demo-navitem--active:hover {
+.menu-item--ativo:hover {
   color: #fff;
   background: linear-gradient(105deg, var(--green-core), var(--green-vivid));
   padding-left: 0.85rem;
 }
-.demo-navitem .demo-navicon {
+.menu-item .menu-icone {
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.demo-navitem:hover .demo-navicon { transform: scale(1.12); }
+.menu-item:hover .menu-icone { transform: scale(1.12); }
 
 /* Respeita a preferência do sistema por menos movimento */
 @media (prefers-reduced-motion: reduce) {
