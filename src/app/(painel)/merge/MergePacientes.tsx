@@ -110,7 +110,7 @@ function BuscaSlot({
         <p className="mt-2 text-sm text-neutral-500">Nenhum paciente encontrado.</p>
       )}
       {resultados.length > 0 && (
-        <ul className="mt-2 divide-y divide-neutral-100 rounded-lg ring-1 ring-black/5">
+        <ul className="mt-2 divide-y divide-neutral-100 rounded-lg bg-white ring-1 ring-black/5">
           {resultados.map((r) => (
             <li key={r.id} className="flex items-center justify-between p-2.5">
               <div className="text-sm">

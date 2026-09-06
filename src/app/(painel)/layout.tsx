@@ -33,7 +33,10 @@ export default async function PainelLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="hero-dark sticky top-0 z-30 border-b border-white/10">
+      {/* `barra-blur`, não `hero-dark`: a barra deixou de ter gradiente e blobs
+          animados e virou só um borrão sobre o canvas. `.hero-dark` continua no
+          CSS — /preview e /demo/crm usam. */}
+      <header className="barra-blur sticky top-0 z-30 border-b border-white/10">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-2.5">
           <div className="flex items-center gap-6">
             <Wordmark tone="onBrand" />

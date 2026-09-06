@@ -75,11 +75,62 @@
 }
 
 :root {
-  --background: var(--color-canvas);
-  --foreground: var(--color-ink-900);
-  /* Tema é claro por design. Impede o "Auto Dark Mode" do Chrome/Edge
-     (Windows em modo escuro) de inverter as cores da página. */
-  color-scheme: light;
+  /* Canvas ESCURO, na mesma paleta da barra de navegação. Antes o canvas era
+     `--color-canvas` (#e6ebe8, claro) e a barra era verde-escura: duas paletas
+     na mesma tela, com a emenda à vista.
+
+     Os CARDS continuam brancos de propósito — isto não é tema escuro completo.
+     36 arquivos assumem fundo claro dentro dos cards (56 `bg-white`, 123
+     classes de texto escuro); repintar tudo seria refatoração, não ajuste. Os
+     títulos de página ficam fora dos cards e herdam `--foreground`, então
+     clareiam sozinhos. */
+  --background: var(--color-night-900);
+  --foreground: #e6f6fb;
+
+  /* Era `light`, com a justificativa de impedir o "Auto Dark Mode" do
+     Chrome/Edge de INVERTER as cores de uma página clara. Esse motivo deixou de
+     valer quando a página passou a ser escura — mas o `color-scheme` continua
+     necessário, agora em `dark`: é ele que faz o navegador desenhar barra de
+     rolagem, `<select>` e campos nativos na variante escura. Sem ele, os
+     controles do sistema aparecem brancos sobre o fundo escuro. */
+  color-scheme: dark;
+}
+
+/* Superfície clara reimpõe texto escuro.
+   Com o canvas escuro, `--foreground` passou a ser claro — e todo texto DENTRO
+   de um card branco que não declara cor própria herdava esse claro e sumia no
+   branco. Acontecia com títulos de seção dentro de cards e com células de
+   tabela sem classe de cor.
+
+   `:where()` zera a especificidade de propósito: isto é um PADRÃO, não uma
+   imposição. Qualquer `text-neutral-500`, `text-red-600` etc. dentro do card
+   continua vencendo normalmente. Uma regra com especificidade real quebraria
+   todas essas cores de uma vez. */
+:where(.bg-white, .bg-neutral-50) {
+  color: var(--color-ink-900);
+}
+
+/* O inverso do caso acima: rótulos escolhidos para fundo claro que ficaram
+   DIRETO no canvas escuro — títulos de seção, links secundários, legendas de
+   formulário. `neutral-600/700/800` sobre `night-900` dão ~2,4:1 a 3:1 e somem.
+   São 118 ocorrências espalhadas por 36 arquivos; trocar uma a uma erraria
+   justamente as que estão dentro de card, onde o tom escuro está CORRETO.
+
+   Por isso a inversão é global e a regra aninhada logo abaixo devolve o tom
+   original dentro de qualquer superfície clara. Especificidade 0,2,0 contra
+   0,1,0 — a de dentro do card vence, como tem de ser. */
+.text-neutral-800,
+.text-neutral-700 {
+  color: #ccd8d1;
+}
+.text-neutral-600 {
+  color: #b3c1ba;
+}
+:is(.bg-white, .bg-neutral-50) :is(.text-neutral-800, .text-neutral-700) {
+  color: var(--color-ink-800);
+}
+:is(.bg-white, .bg-neutral-50) :is(.text-neutral-600) {
+  color: var(--color-ink-600);
 }
 
 html,
@@ -170,6 +221,19 @@ body {
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   border: 1px solid rgb(255 255 255 / 0.10);
+}
+
+/* Barra de navegação: SÓ borrão, sem cor própria.
+   Antes o <header> usava `.hero-dark`, que pinta um gradiente radial e ainda
+   anima dois blobs de aurora por trás — cor demais para uma barra, e uma
+   segunda paleta competindo com o canvas.
+   O `color-mix` deriva de `--background` em vez de fixar cor: a barra não pinta
+   nada próprio, só borra o que passa por baixo. Se o canvas mudar de cor um
+   dia, a barra acompanha sem ninguém lembrar de vir aqui. */
+.barra-blur {
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
 /* Header glass do shell claro */

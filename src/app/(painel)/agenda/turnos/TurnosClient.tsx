@@ -29,7 +29,7 @@ export default function TurnosClient({
   return (
     <div className="space-y-8">
       {/* Grade semanal profissional × dia */}
-      <div className="overflow-x-auto rounded-xl ring-1 ring-black/5">
+      <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-black/5">
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 text-left text-neutral-500">
             <tr>

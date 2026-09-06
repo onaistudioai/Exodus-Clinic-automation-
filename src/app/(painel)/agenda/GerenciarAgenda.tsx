@@ -83,7 +83,7 @@ export default function GerenciarAgenda({
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {porProf.map(({ prof, itens }) => (
-            <div key={prof.id} className="rounded-xl ring-1 ring-black/5">
+            <div key={prof.id} className="rounded-xl bg-white ring-1 ring-black/5">
               <div className="border-b border-neutral-100 px-4 py-2 text-sm font-medium">
                 {prof.nome}
                 {prof.especialidade && (
@@ -338,7 +338,7 @@ function NovoAgendamento({
               className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
             />
             {!pac && pacientes.length > 0 && (
-              <div className="mt-1 overflow-hidden rounded-lg ring-1 ring-black/5">
+              <div className="mt-1 overflow-hidden rounded-lg bg-white ring-1 ring-black/5">
                 {pacientes.map((p) => (
                   <button
                     key={p.id}

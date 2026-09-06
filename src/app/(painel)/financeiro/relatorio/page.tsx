@@ -51,7 +51,7 @@ export default async function RelatorioMargemPage() {
           Sem cobranças no período. Cadastre preços e finalize atendimentos para ver a margem.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
+        <div className="overflow-hidden rounded-xl bg-white ring-1 ring-black/5">
           <table className="w-full text-sm">
             <thead className="bg-neutral-50 text-left text-neutral-500">
               <tr>

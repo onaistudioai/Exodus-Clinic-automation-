@@ -68,7 +68,7 @@ export default async function ProdutoEstoquePage({
         {lotes.length === 0 ? (
           <p className="text-sm text-neutral-400">Sem lotes.</p>
         ) : (
-          <div className="overflow-hidden rounded-xl ring-1 ring-black/5">
+          <div className="overflow-hidden rounded-xl bg-white ring-1 ring-black/5">
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-left text-neutral-500">
                 <tr>
