@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { trocarSenhaAction, type SenhaState } from "./actions";
 
-export default function SenhaClient() {
+export default function SenhaClient({ email }: { email: string | null }) {
   const [state, action, pending] = useActionState<SenhaState, FormData>(
     trocarSenhaAction,
     {}
@@ -13,6 +13,20 @@ export default function SenhaClient() {
 
   return (
     <form action={action} className="max-w-sm space-y-4">
+      {/*
+        Campo de identificação, oculto e somente-leitura. Sem ele, o Chrome
+        avisa "Password forms should have (optionally hidden) username fields"
+        — e o sintoma real é que o gerenciador de senha não sabe A QUAL conta a
+        senha nova pertence, então não atualiza o registro guardado.
+
+        `trocarSenhaAction` lê apenas `atual`, `nova` e `nova2`; este campo
+        entra no FormData e é ignorado. O id do usuário continua vindo da
+        SESSÃO, nunca do formulário — se viesse daqui, seria "trocar a senha de
+        qualquer um".
+      */}
+      {email && (
+        <input type="text" name="username" autoComplete="username" value={email} readOnly hidden />
+      )}
       <label className="block text-sm">
         <span className="text-neutral-700">Senha atual</span>
         <input

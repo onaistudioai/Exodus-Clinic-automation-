@@ -81,6 +81,22 @@ export async function definirAtivo(tx: Tx, id: number, ativo: boolean): Promise<
   return (rowCount ?? 0) > 0;
 }
 
+/**
+ * E-mail de um usuário. Serve ao campo oculto `autocomplete="username"` da tela
+ * de troca de senha: sem um identificador ao lado dos campos de senha, o
+ * gerenciador do navegador não sabe a QUAL conta a senha nova pertence e não
+ * atualiza o registro guardado (o Chrome avisa isso no console).
+ *
+ * Devolve só o e-mail. `senha_hash` não sai daqui — vale a regra do arquivo.
+ */
+export async function emailDe(tx: Tx, id: number): Promise<string | null> {
+  const { rows } = await tx.query<{ email: string | null }>(
+    `SELECT email FROM usuarios WHERE id = $1 AND ativo`,
+    [id]
+  );
+  return rows[0]?.email ?? null;
+}
+
 /** Hash atual de um usuário, só para conferir a senha antiga na troca própria. */
 export async function hashDe(tx: Tx, id: number): Promise<string | null> {
   const { rows } = await tx.query<{ senha_hash: string | null }>(
