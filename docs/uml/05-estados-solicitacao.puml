@@ -1,0 +1,35 @@
+@startuml estados-solicitacao
+title Estados da solicitação (aprovação e identidade)
+
+' Fonte: .planning/acesso/sql/004-aprovacao.sql — tabelas estado_solicitacao
+' e transicao_solicitacao. As DUAS filas usam a mesma máquina:
+'   solicitacao_aprovacao  — ação sensível pedida por quem não pode executá-la
+'   solicitacao_paciente   — pedido do WhatsApp que o vínculo não autoriza
+
+[*] --> pendente : pedido registrado\ncom argumentos (JSONB)
+
+pendente --> aprovada : outra pessoa aprova
+pendente --> negada   : outra pessoa nega
+pendente --> expirada : passou de expira_em (48h)
+
+aprovada --> [*]
+negada --> [*]
+expirada --> [*]
+
+note right of pendente
+  chk_nao_autoaprova:
+  decidido_por <> solicitante_id.
+  Auto-aprovação transformaria
+  a fila num carimbo.
+end note
+
+note bottom
+  chk_decisao_coerente impede a linha meio-decidida:
+    pendente -> sem decisor e sem data
+    expirada -> sem decisor
+    aprovada/negada -> decisor E data obrigatórios
+  O aprovador executa os `argumentos` gravados, nunca
+  uma reconstrução a partir do texto do pedido.
+end note
+
+@enduml

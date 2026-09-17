@@ -1,0 +1,64 @@
+@startuml isolamento-tenant
+title Isolamento por tenant (RLS)
+skinparam linetype ortho
+
+' Fonte: .planning/seguranca/000-roles.sql e 001-lockdown.sql.
+' O lockdown não lista tabelas: varre pg_catalog atrás da coluna clinica_id.
+
+package "Aplicação" {
+  component "Painel Next.js" as painel
+  component "n8n (SOFIA)" as n8n
+}
+
+package "Roles do Postgres" {
+  component "app_painel\nNOBYPASSRLS" as app_painel
+  component "app_n8n\ngrant em poucas tabelas" as app_n8n
+}
+
+package "Sessão" {
+  component "SET app.clinica_id = <id>\nfeito no dal.ts a cada request" as guc
+}
+
+database "Tabelas" as tabelas {
+}
+
+painel --> app_painel
+n8n --> app_n8n
+app_painel --> guc
+guc --> tabelas
+
+note right of tabelas
+  Toda tabela COM clinica_id:
+    ENABLE ROW LEVEL SECURITY
+    FORCE ROW LEVEL SECURITY
+    POLICY rls_tenant
+      USING       (clinica_id = NULLIF(current_setting('app.clinica_id', true), '')::int)
+      WITH CHECK  (idem)
+
+  FAIL-CLOSED: sem o GUC, current_setting devolve
+  vazio -> NULLIF -> NULL -> a comparação nunca é
+  verdadeira -> ZERO linhas. Esquecer de setar o
+  tenant não abre o banco, fecha ele.
+
+  FORCE: nem o dono da tabela escapa da política.
+end note
+
+note bottom of tabelas
+  Ficam DE FORA por não serem dado de clínica:
+    papel, acao, papel_acao      — catálogo RBAC global
+    estado_* , transicao_*       — máquinas de estado
+    funcao_alcance               — governança de jobs
+    login_tentativas,
+    identidade_tentativas        — rate-limit (revogadas de app_painel)
+  Exclusão é decisão registrada, não tabela esquecida.
+end note
+
+note bottom of app_n8n
+  Contradição aberta em MAPA-OPERACAO.md §2.4:
+  os workflows escrevem em agendamentos_sofia_demo,
+  mas essa tabela não aparece na lista de GRANT do
+  001-lockdown.sql. sofia-demo/sql/_diag1.sql
+  responde isso contra o banco vivo.
+end note
+
+@enduml

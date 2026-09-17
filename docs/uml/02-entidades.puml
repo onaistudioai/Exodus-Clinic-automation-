@@ -1,6 +1,6 @@
-@startuml modelo-dados
+@startuml entidades
 !theme plain
-title Modelo de dados — aios-painel (EXODUS / AIOS.clinic)
+title Entidades
 skinparam linetype ortho
 
 ' Gerado a partir das migrations reais em aios-painel/.planning/*/sql/*.sql

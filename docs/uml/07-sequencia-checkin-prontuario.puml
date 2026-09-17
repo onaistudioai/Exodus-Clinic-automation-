@@ -1,0 +1,61 @@
+@startuml sequencia-checkin-prontuario
+title Sequência: check-in, atendimento e cobrança
+
+actor "Recepção" as Rec
+actor "Profissional" as Med
+participant "Painel" as P
+participant "RBAC + tenant" as Guard
+database "Postgres" as DB
+
+Rec -> P : abre o check-in do dia
+P -> Guard : sessão -> {usuario_id, clinica_id, papel}
+Guard -> DB : SET app.clinica_id (RLS da sessão)
+Guard -> DB : papel_acao: 'checkin' permitido?
+DB --> Guard : sim (recepcao, admin)
+P -> DB : agendamentos de hoje
+DB --> P : lista (só da clínica da sessão)
+
+Rec -> P : confere identidade do paciente
+note right of Rec
+  CPF DESAMBIGUA, não autentica.
+  O banco guarda hash com pepper
+  + 2 dígitos, nunca o CPF cheio.
+end note
+P -> DB : identidade_confirmada_em no agendamento
+
+Med -> P : abre o prontuário
+P -> Guard : ação 'ler_texto_clinico'
+Guard -> DB : registra prontuario_acessos (leu)
+note right of DB : trilha de acesso é append-only (LGPD)
+
+Med -> P : registra o atendimento
+P -> Guard : ação 'criar_entrada_prontuario' (escrita + SENSÍVEL)
+alt papel = medico
+  P -> DB : prontuario_entradas (rascunho -> finalizado)
+  P -> DB : prontuario_acessos (criou, finalizou)
+
+  group hook não-bloqueante na finalização
+    P -> DB : financeiro_cobrancas pelo preço vigente
+    note right of DB
+      uq_cobranca_por_entrada:
+      uma cobrança automática por
+      entrada de prontuário.
+    end note
+    P -> DB : baixa de estoque pela BOM\n(procedimento_materiais -> lotes FEFO)
+    P -> DB : movimentacoes_estoque (append-only)
+  end
+else papel = admin ou recepcao
+  Guard --> P : negado — vira solicitacao_aprovacao
+  note over P : ver 05-estados-solicitacao
+end
+
+Rec -> P : registra o pagamento
+P -> DB : financeiro_lancamentos (receita)
+note right of DB
+  Livro-razão append-only:
+  correção é estorno, nova linha.
+  uq_lancamento_por_cobranca impede
+  a mesma cobrança virar duas receitas.
+end note
+
+@enduml

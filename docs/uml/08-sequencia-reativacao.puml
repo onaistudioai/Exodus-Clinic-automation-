@@ -1,0 +1,64 @@
+@startuml sequencia-reativacao
+title Sequência: campanha de reativação
+
+actor "Recepção ou Dono" as Op
+participant "Painel" as P
+database "Postgres" as DB
+participant "n8n · worker" as W
+participant "WAHA" as WA
+actor Paciente
+
+Op -> P : cria a campanha (janela_dias, passos)
+P -> DB : reativacao_campanhas (ativa = false)
+note right of DB
+  uq: no máximo UMA campanha
+  ativa por clínica.
+end note
+
+Op -> P : monta o público
+P -> DB : pacientes sem atendimento na janela
+DB --> P : candidatos
+P -> DB : reativacao_alvos (passo_atual = 0)
+
+group antes de qualquer envio
+  P -> DB : último consentimento_eventos do contato
+  alt último evento = optout
+    DB --> P : fora
+    note right of P : optout vence sempre, é prova append-only
+  else optin ou sem registro
+    DB --> P : entra na fila
+  end
+end
+
+Op -> P : dispara em modo dry
+P -> DB : reativacao_envios (modo = 'dry', wa_status = 'simulado')
+note over P : nada sai pelo WhatsApp — só mede o alcance
+
+Op -> P : ativa a campanha
+P -> DB : campanha ativa = true
+
+loop a cada passo vencido (proximo_envio <= now)
+  W -> DB : alvos ativos com passo vencido
+  W -> WA : envia o template do passo
+  WA --> Paciente : mensagem
+  W -> DB : reativacao_envios (modo = 'live')
+  note right of DB
+    uq_envio_live_por_passo (alvo, passo):
+    idempotência do envio REAL — reprocessar
+    o worker não manda de novo.
+  end note
+  W -> DB : passo_atual += 1, proximo_envio
+
+  alt paciente responde "sair"
+    Paciente -> WA : optout
+    WA -> W : webhook
+    W -> DB : consentimento_eventos (optout)
+    W -> DB : alvo status = 'optout'
+  else paciente marca
+    Paciente -> WA : quer agendar
+    W -> DB : alvo status = 'reativado', reativado_em
+    note over W : segue o fluxo de 06-sequencia-agendamento-sofia
+  end
+end
+
+@enduml

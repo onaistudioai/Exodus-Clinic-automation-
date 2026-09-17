@@ -1,0 +1,54 @@
+@startuml estados-agendamento
+title Estados do agendamento
+
+' Fonte única: .planning/camada-a-v2/sql/007-estados-fonte-unica.sql
+' (tabelas estado_agendamento e transicao_agendamento).
+' O espelho em TypeScript é src/lib/status-agendamento.ts, e
+' tests/schema-contract compara as duas listas.
+
+[*] --> reservada : SOFIA segura o horário
+[*] --> agendada : marcado no balcão
+
+reservada --> confirmada
+reservada --> cancelada
+reservada --> expirada : não confirmou a tempo
+reservada --> recusada
+
+agendada --> confirmada
+agendada --> cancelada
+agendada --> remarcada
+agendada --> recusada
+agendada --> sem_resposta : silêncio no lembrete D-1
+
+' Silêncio não é fim: o paciente ainda pode responder depois do H-1.
+sem_resposta --> confirmada
+sem_resposta --> cancelada
+
+confirmada --> realizada
+confirmada --> no_show
+confirmada --> cancelada
+confirmada --> remarcada
+
+cancelada --> [*]
+remarcada --> [*]
+realizada --> [*]
+expirada --> [*]
+recusada --> [*]
+no_show --> [*]
+
+state escalado_humano
+note right of escalado_humano
+  Não é etapa do fluxo: marca que a
+  conversa saiu da SOFIA e foi para a
+  equipe (ver 06-sequencia-agendamento-sofia).
+end note
+
+note bottom
+  terminal = true: cancelada, remarcada, realizada.
+  A lista NÃO é replicada em CHECK, CASE ou TS sem
+  derivar daqui — foi assim que 'pendente' e
+  'remarcacao_pendente' ficaram órfãos nos workflows
+  do n8n e as consultas voltaram zero linhas.
+end note
+
+@enduml

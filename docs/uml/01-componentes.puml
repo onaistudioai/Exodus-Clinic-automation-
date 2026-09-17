@@ -1,0 +1,70 @@
+@startuml componentes
+title Componentes
+left to right direction
+
+actor Paciente
+actor "Recepção" as recepcao_ator
+actor "Profissional" as medico_ator
+actor "Dono (admin)" as admin_ator
+
+node "WhatsApp" as whatsapp
+node "WAHA\nsessão por clínica" as waha
+
+package "n8n (SOFIA)" {
+  component "Router\nintenção via Groq" as router
+  component "Lembretes\nD-1 e D0" as lembretes
+  component "Reativação\nworker de campanha" as worker_reativacao
+}
+
+package "Next.js 16 (App Router)" {
+  component "Painel\nagenda, crm, checkin, prontuário,\nfinanceiro, estoque, reativação,\naprovações, escalonamentos, chat" as painel
+  component "API /api/sofia/*\nagendar, confirmar, disponibilidade,\npaciente, optout — assinada com HMAC" as api_sofia
+  component "API /api/chat\nferramentas do assistente" as api_chat
+  component "Cron /api/cron/retencao\nexpurgo por prazo (LGPD)" as cron
+  component "DAL + repos\nsrc/server/*.repo.ts" as dal
+  component "Guardas\nauth, session, rbac, tenant,\napi-guard, hmac, rate-limit" as guardas
+}
+
+database "Postgres (Neon sa-east-1)\nRLS por clinica_id" as db {
+}
+
+cloud "Groq\nllama-3.3-70b" as groq
+
+Paciente --> whatsapp
+whatsapp --> waha
+waha --> router
+router --> groq
+recepcao_ator --> painel
+medico_ator --> painel
+admin_ator --> painel
+
+painel --> guardas
+api_sofia --> guardas
+api_chat --> guardas
+guardas --> dal
+cron --> dal
+dal --> db : "role app_painel\n(NOBYPASSRLS)"
+
+router --> db : "role app_n8n\nESCRITA DIRETA"
+lembretes --> db
+worker_reativacao --> db
+router ..> api_sofia : "contrato HMAC\nconstruído e NÃO consumido"
+api_chat --> groq
+
+note right of router
+  Desvio de arquitetura registrado em
+  docs/RELATORIOS/MAPA-OPERACAO.md:
+  a SOFIA grava por nó Postgres direto
+  em vez de usar /api/sofia/*, então a
+  mesma tabela tem dois donos com
+  validações diferentes.
+end note
+
+note right of db
+  Toda tabela com clinica_id recebe
+  RLS automática (FORCE, fail-closed):
+  sem app.clinica_id na sessão,
+  a consulta devolve zero linhas.
+end note
+
+@enduml

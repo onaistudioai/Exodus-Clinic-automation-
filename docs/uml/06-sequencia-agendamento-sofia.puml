@@ -1,0 +1,57 @@
+@startuml sequencia-agendamento-sofia
+title Sequência: paciente marca pelo WhatsApp
+
+actor Paciente
+participant "WAHA" as W
+participant "n8n · Router SOFIA" as R
+participant "Groq" as G
+database "Postgres" as DB
+participant "Painel" as P
+
+Paciente -> W : mensagem
+W -> R : webhook (chat_id, texto)
+R -> DB : clinica_canal por identificador da sessão
+note right of R
+  O identificador da sessão é a chave de
+  ENTRADA do tenant. O número formatado
+  nunca é chave: diverge entre provedores.
+end note
+DB --> R : clinica_id
+
+R -> DB : sofia_conversas (memória da conversa)
+R -> G : classifica intenção + extrai data/hora/serviço
+G --> R : {intencao, campos}
+
+alt intenção = agendar
+  R -> DB : contatos_whatsapp / paciente_contato\n(resolve quem está falando)
+  alt vínculo ativo e maior de idade
+    R -> DB : INSERT agendamentos_sofia_demo\n(status = reservada)
+    R -> DB : eventos_agendamento (origem = bot)
+    R --> Paciente : confirma o horário
+  else menor sem autoatendimento, ou vínculo insuficiente
+    R -> DB : solicitacao_paciente (estado = pendente)
+    R --> Paciente : "vou passar para a recepção"
+    P -> DB : recepção decide na fila de aprovações
+  end
+else sintoma clínico, reclamação ou pediu humano
+  R -> DB : escalonamentos (gatilho, trecho)
+  R --> Paciente : avisa que uma pessoa assume
+  note over P : alerta de escalação aparece no painel
+end
+
+... no dia anterior ...
+
+participant "n8n · Lembrete D-1" as L
+L -> DB : agendamentos de amanhã (status agendada)
+L -> W : envia lembrete pelo template vigente
+L -> DB : mensagens_bot + notificacoes_saida
+Paciente -> W : "confirmo"
+W -> R : webhook
+R -> DB : status -> confirmada
+note right of DB
+  Escrita feita pela role app_n8n,
+  direto na tabela — sem passar pelo
+  contrato HMAC /api/sofia/*.
+end note
+
+@enduml

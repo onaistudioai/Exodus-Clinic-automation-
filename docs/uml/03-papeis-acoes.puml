@@ -1,0 +1,74 @@
+@startuml papeis-acoes
+title Papéis e ações (RBAC)
+skinparam linetype ortho
+left to right direction
+
+' Fonte: .planning/acesso/sql/001-acesso.sql (tabelas papel, acao, papel_acao).
+' A matriz vive no BANCO, não no TypeScript — src/lib/rbac.ts lê daqui.
+
+package "Catálogo (sem clinica_id — global)" {
+  class papel <<tabela>> {
+    chave : TEXT <<PK>>
+    rotulo, ordem
+  }
+
+  class acao <<tabela>> {
+    chave : TEXT <<PK>>
+    modulo
+    escrita : BOOLEAN
+    sensivel : BOOLEAN
+    descricao
+  }
+
+  class papel_acao <<tabela>> {
+    papel_chave <<FK>>
+    acao_chave <<FK>>
+  }
+}
+
+papel "1" --> "0..*" papel_acao
+acao  "1" --> "0..*" papel_acao
+
+note bottom of acao
+  Os dois booleanos DERIVAM comportamento
+  em vez de repeti-lo em cada consumidor:
+    escrita  -> o chat confirma antes de executar
+    sensivel -> negar não basta, vira pedido
+                de aprovação (05-estados-solicitacao)
+  CHECK impede sensivel sem escrita:
+  não há o que aprovar num SELECT.
+end note
+
+' ---------------------------------------------------------------------------
+' A matriz vigente
+' ---------------------------------------------------------------------------
+object "recepcao — Recepcionista" as recepcao
+object "medico — Profissional" as medico
+object "admin — Dono" as admin
+
+map "Ações por papel" as matriz {
+  checkin => recepcao, admin
+  ler_texto_clinico => medico, admin
+  criar_entrada_prontuario => medico
+  expurgo_logico => admin
+  ver_auditoria => admin
+  ver_estoque => recepcao, medico, admin
+  gerir_estoque => recepcao, admin
+  configurar_bom => admin
+  ver_reativacao => recepcao, medico, admin
+  gerir_reativacao => recepcao, admin
+  ver_financeiro => recepcao, medico, admin
+  gerir_financeiro => recepcao, admin
+  ver_agenda => recepcao, medico, admin
+  gerir_agenda => recepcao, admin
+  gerir_escala => admin
+}
+
+note right of matriz
+  criar_entrada_prontuario é SÓ do médico:
+  o admin lê o prontuário mas não escreve
+  nele. Quem é dono da clínica não vira
+  autor de ato clínico por ter o login mais forte.
+end note
+
+@enduml
