@@ -44,7 +44,7 @@ disponibilidade (carga/custo v2; NÃO é ponto legal) · timestamptz + clinicas.
 
 ## Integração com a SOFIA (K1 verificado ao vivo)
 
-Writer da SOFIA = workflow `SMe2MU21YGUbEknF` via role **`app_n8n` (BYPASSRLS=true)** → ligar RLS
+Writer da SOFIA = workflow do router via role **`app_n8n` (BYPASSRLS=true)** → ligar RLS
 FORCE em `agendamentos` NÃO quebra o agendamento por WhatsApp. Painel (`app_painel`, sem bypass) fica
 isolado por tenant. Lembretes D-1/D0 são crons que varrem a mesma tabela → pegam agendamentos do balcão
 automaticamente (criarAgendamento popula data_agendamento/hora_agendamento/chat_id).

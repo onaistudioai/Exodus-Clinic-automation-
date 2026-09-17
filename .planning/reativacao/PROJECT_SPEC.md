@@ -2,7 +2,7 @@
 
 > Fase 0 OPUS (MAGISTER). Escopo travado pelo user: **Reativação**.
 > Fundamentado no schema de produção (inspeção ao vivo 2026-06-22) e no padrão dos
-> senders SOFIA (M3 Confirmação `hJHs600CK1VjxVRa`, M4 Lembrete D-0 `gRaV8z6L9ImDhiiF`:
+> senders SOFIA (M3 Confirmação e M4 Lembrete D-0:
 > cron → Postgres → WAHA `sendText`).
 
 ## 1. Objetivo
@@ -70,7 +70,7 @@ não um disparador de massa cego. Atribuição real, anti-spam e anti-duplicata.
 - **RBAC:** `src/lib/rbac.ts` — nova ação `gerir_reativacao` (admin + recepção).
 - **Worker:** workflow **n8n** (cron → Postgres → WAHA), padrão M3/M4. WAHA sessão `default`.
   Credenciais do n8n e do WAHA: identificadores no cofre local, fora do repositório.
-- **Opt-out:** ajuste no router SOFIA (`SMe2MU21YGUbEknF`) — detectar palavra-chave.
+- **Opt-out:** ajuste no router SOFIA — detectar palavra-chave.
 - **Migração:** runner `sofia-demo/sql/_run-sql.mjs` (banco só via n8n, sem proxy público).
 - **Deploy:** `railway up` (CLI) de `aios-painel/` OU MCP da raiz `D:/projetos/Demo` —
   **nunca** MCP com `path=aios-painel/`.
