@@ -1,0 +1,619 @@
+@import "tailwindcss";
+
+/*
+ * EXODUS — tema clínico claro, estilo "data-dense dashboard".
+ * Paleta: calm cyan (saúde/clínico) + verde como positivo.
+ * Tokens expostos ao Tailwind v4 via @theme → habilitam utilitárias
+ * (bg-brand-600, text-ink-500, ring-line, rounded-card, shadow-card, …).
+ */
+@theme {
+  /* Marca — VERDE clínico/vital (saúde). brand-600/700 legíveis sobre branco;
+     brand-300/400 são os verdes vivos da aurora (#27ff57). */
+  --color-brand-50: #e9ffef;
+  --color-brand-100: #c7ffd6;
+  --color-brand-200: #92ffb0;
+  --color-brand-300: #57f57e;
+  --color-brand-400: #27ff57;
+  --color-brand-500: #18c93f;
+  --color-brand-600: #15a33a;
+  --color-brand-700: #15803d;
+  --color-brand-800: #166534;
+  --color-brand-900: #0c3b20;
+
+  /* Tinta / texto — quase-preto esverdeado no light (nunca #000) */
+  --color-ink-900: #0e1512;
+  --color-ink-800: #1f2b25;
+  --color-ink-700: #2f3d36;
+  --color-ink-600: #44534b;
+  --color-ink-500: #5c6b63;
+  --color-ink-400: #8a978f;
+
+  /* Superfícies e linhas — cinza claro esverdeado (nunca branco puro).
+     line = transparent: sistema SEM bordas (elementos definidos por vidro+sombra). */
+  --color-canvas: #e6ebe8;
+  --color-surface: #ffffff;
+  --color-line: transparent;
+
+  /* Destaque (palavras verdes) — legível sobre cinza claro no light */
+  --hi: #12833a;
+
+  /* ── 3 VERDES PREDOMINANTES do sistema ──
+     green-deep (fundo/imersão) · green-core (ações/marca) · green-vivid (vida/aurora) */
+  --green-deep: #0a1f13;
+  --green-core: #15a33a;
+  --green-vivid: #27ff57;
+
+  /* Raios e sombras (escala de elevação consistente) */
+  --radius-card: 0.875rem;
+  --shadow-card: 0 1px 2px 0 rgb(12 59 32 / 0.04), 0 4px 14px -6px rgb(12 59 32 / 0.10);
+  --shadow-pop: 0 12px 34px -14px rgb(12 59 32 / 0.22);
+
+  /* Acento — deriva do green-vivid (mantém a paleta nos 3 verdes) */
+  --color-accent-300: #b6ffc8;
+  --color-accent-400: #4ef07a;
+  --color-accent-500: #1fbf4a;
+  --color-accent-600: #15803d;
+
+  /* Teal — puxado para o verde (menos água, mais folha) */
+  --color-teal-400: #43e08a;
+  --color-teal-500: #1cc257;
+  --color-teal-600: #15a33a;
+
+  /* Superfície "hero" escura imersiva — VERDE-ESCURO/grafite */
+  --color-night-900: #08140d;
+  --color-night-800: #0d2116;
+  --color-night-700: #14331f;
+
+  /* Brilhos (glow) — discretos (pouca ênfase em brilho) */
+  --shadow-glow: 0 4px 16px -8px rgb(21 163 58 / 0.22);
+  --shadow-glow-violet: 0 6px 22px -12px rgb(21 163 58 / 0.28);
+
+  /* Fonte — Elms Sans, auto-hospedada por next/font/google (ver app/layout.tsx).
+     `--font-elms` é declarada pelo next/font no <html>; a cadeia de fallback
+     continua aqui porque a variável some se o build da fonte falhar. */
+  --font-sans: var(--font-elms), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+:root {
+  /* Canvas ESCURO, na mesma paleta da barra de navegação. Antes o canvas era
+     `--color-canvas` (#e6ebe8, claro) e a barra era verde-escura: duas paletas
+     na mesma tela, com a emenda à vista.
+
+     Os CARDS continuam brancos de propósito — isto não é tema escuro completo.
+     36 arquivos assumem fundo claro dentro dos cards (56 `bg-white`, 123
+     classes de texto escuro); repintar tudo seria refatoração, não ajuste. Os
+     títulos de página ficam fora dos cards e herdam `--foreground`, então
+     clareiam sozinhos. */
+  --background: var(--color-night-900);
+  --foreground: #e6f6fb;
+
+  /* Era `light`, com a justificativa de impedir o "Auto Dark Mode" do
+     Chrome/Edge de INVERTER as cores de uma página clara. Esse motivo deixou de
+     valer quando a página passou a ser escura — mas o `color-scheme` continua
+     necessário, agora em `dark`: é ele que faz o navegador desenhar barra de
+     rolagem, `<select>` e campos nativos na variante escura. Sem ele, os
+     controles do sistema aparecem brancos sobre o fundo escuro. */
+  color-scheme: dark;
+}
+
+/* Superfície clara reimpõe texto escuro.
+   Com o canvas escuro, `--foreground` passou a ser claro — e todo texto DENTRO
+   de um card branco que não declara cor própria herdava esse claro e sumia no
+   branco. Acontecia com títulos de seção dentro de cards e com células de
+   tabela sem classe de cor.
+
+   `:where()` zera a especificidade de propósito: isto é um PADRÃO, não uma
+   imposição. Qualquer `text-neutral-500`, `text-red-600` etc. dentro do card
+   continua vencendo normalmente. Uma regra com especificidade real quebraria
+   todas essas cores de uma vez. */
+:where(.bg-white, .bg-neutral-50) {
+  color: var(--color-ink-900);
+}
+
+/* O inverso do caso acima: rótulos escolhidos para fundo claro que ficaram
+   DIRETO no canvas escuro — títulos de seção, links secundários, legendas de
+   formulário. `neutral-600/700/800` sobre `night-900` dão ~2,4:1 a 3:1 e somem.
+   São 118 ocorrências espalhadas por 36 arquivos; trocar uma a uma erraria
+   justamente as que estão dentro de card, onde o tom escuro está CORRETO.
+
+   Por isso a inversão é global e a regra aninhada logo abaixo devolve o tom
+   original dentro de qualquer superfície clara. Especificidade 0,2,0 contra
+   0,1,0 — a de dentro do card vence, como tem de ser. */
+.text-neutral-800,
+.text-neutral-700 {
+  color: #ccd8d1;
+}
+.text-neutral-600 {
+  color: #b3c1ba;
+}
+:is(.bg-white, .bg-neutral-50) :is(.text-neutral-800, .text-neutral-700) {
+  color: var(--color-ink-800);
+}
+:is(.bg-white, .bg-neutral-50) :is(.text-neutral-600) {
+  color: var(--color-ink-600);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* evita scrollbar horizontal causada por seções full-bleed (w-screen) */
+  overflow-x: hidden;
+}
+
+/* Números em tabelas/valores: figuras tabulares evitam "pulo" de coluna */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Anel de foco consistente e acessível em toda a UI */
+*:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+}
+
+/* ───────────────────────────────────────────────────────────────
+ * Sistema visual EXODUS v2 — híbrido: shell claro + hero escuro aurora.
+ * Tecnológico, acolhedor, sem clichê de "dashboard de dados".
+ * Arte 100% vetorial/CSS (sem assets externos).
+ * ─────────────────────────────────────────────────────────────── */
+
+/* Superfície hero escura imersiva + véu aurora animado */
+.hero-dark {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 100% 0%, var(--color-night-700) 0%, var(--color-night-900) 60%);
+  color: #e6f6fb;
+}
+/* Blobs de aurora que respiram lentamente atrás do conteúdo */
+.hero-dark::before,
+.hero-dark::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(56px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.hero-dark::before {
+  width: 42rem;
+  height: 42rem;
+  top: -16rem;
+  right: -10rem;
+  background: radial-gradient(circle, var(--color-brand-400) 0%, transparent 70%);
+  animation: aurora-drift 16s ease-in-out infinite alternate;
+}
+.hero-dark::after {
+  width: 34rem;
+  height: 34rem;
+  bottom: -14rem;
+  left: -8rem;
+  background: radial-gradient(circle, var(--color-accent-500) 0%, transparent 70%);
+  animation: aurora-drift 22s ease-in-out infinite alternate-reverse;
+}
+
+/* Malha técnica sutil (grid clínico) — usado como overlay decorativo */
+.tech-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(circle at 50% 0%, black, transparent 75%);
+  mask-image: radial-gradient(circle at 50% 0%, black, transparent 75%);
+}
+
+/* Vidro (glass) — claro, para cards/forms sobre fundos vivos */
+.glass {
+  background: rgb(255 255 255 / 0.72);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / 0.5);
+}
+/* Vidro escuro — para painéis dentro do hero */
+.glass-dark {
+  background: rgb(8 27 42 / 0.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 0.10);
+}
+
+/* Barra de navegação: SÓ borrão, sem cor própria.
+   Antes o <header> usava `.hero-dark`, que pinta um gradiente radial e ainda
+   anima dois blobs de aurora por trás — cor demais para uma barra, e uma
+   segunda paleta competindo com o canvas.
+   O `color-mix` deriva de `--background` em vez de fixar cor: a barra não pinta
+   nada próprio, só borra o que passa por baixo. Se o canvas mudar de cor um
+   dia, a barra acompanha sem ninguém lembrar de vir aqui. */
+
+/* Header glass do shell claro */
+.header-glass {
+  background: rgb(255 255 255 / 0.78);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+}
+
+/* Botão com varredura de brilho (shine) ao passar o mouse */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgb(255 255 255 / 0.35) 50%,
+    transparent 75%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.7s ease;
+}
+.btn-shine:hover::after {
+  transform: translateX(120%);
+}
+
+/* Linha de pulso/ECG — traçado que "desenha" continuamente */
+.ecg-path {
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  animation: ecg-draw 3.6s linear infinite;
+}
+
+/* Destaque de texto — palavras verdes (usa o token --hi, legível nos 2 modos) */
+.text-aurora {
+  color: var(--hi);
+  font-weight: 600;
+}
+
+/* Entrada suave dos cards (revelar de baixo) */
+.reveal-up {
+  animation: reveal-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes aurora-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(-3rem, 2rem, 0) scale(1.15); }
+}
+@keyframes ecg-draw {
+  to { stroke-dashoffset: -340; }
+}
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.float-soft { animation: float-soft 6s ease-in-out infinite; }
+
+/* ── GooeyNav (cabeçalho com partículas gosma) ── */
+.gooey-nav-container {
+  --gn-color-1: var(--color-brand-400);
+  --gn-color-2: var(--color-accent-400);
+  --gn-color-3: var(--color-teal-400);
+  --gn-color-4: #ffffff;
+  position: relative;
+}
+.gn-list {
+  display: flex;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  z-index: 3;
+}
+.gn-list li {
+  position: relative;
+  border-radius: 9999px;
+  transition: color 0.3s ease;
+  color: rgb(255 255 255 / 0.7);
+}
+.gn-list li a {
+  display: block;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.gn-list li:hover {
+  color: #ffffff;
+}
+.gn-list li.active {
+  color: var(--color-night-900);
+  text-shadow: none;
+}
+.gn-list li.active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--color-brand-400);
+  z-index: -1;
+}
+.gn-effect {
+  position: absolute;
+  opacity: 1;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  top: 0;
+  left: 0;
+}
+.gn-effect.text {
+  color: var(--color-night-900);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+.gn-effect.filter {
+  filter: blur(7px) contrast(100) blur(0);
+  mix-blend-mode: lighten;
+}
+.gn-effect.filter::before {
+  content: "";
+  position: absolute;
+  inset: -75px;
+  z-index: -2;
+  background: transparent;
+}
+.gn-effect.filter::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-brand-400);
+  transform: scale(0);
+  opacity: 0;
+  z-index: -1;
+  border-radius: 9999px;
+}
+.gn-effect.active::after {
+  animation: gn-pill 0.3s ease both;
+}
+@keyframes gn-pill {
+  to { transform: scale(1); opacity: 1; }
+}
+.gn-particle,
+.gn-point {
+  display: block;
+  opacity: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  transform-origin: center;
+}
+.gn-particle {
+  --time: 5s;
+  position: absolute;
+  top: calc(50% - 9px);
+  left: calc(50% - 9px);
+  animation: gn-particle calc(var(--time)) ease 1 -350ms;
+}
+.gn-point {
+  background: var(--color);
+  opacity: 1;
+  animation: gn-point calc(var(--time)) ease 1 -350ms;
+}
+@keyframes gn-particle {
+  0%   { transform: rotate(0deg) translate(var(--start-x), var(--start-y)); opacity: 1; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  70%  { transform: rotate(calc(var(--rotate) * 0.5)) translate(calc(var(--end-x) * 1.2), calc(var(--end-y) * 1.2)); opacity: 1; animation-timing-function: ease; }
+  85%  { transform: rotate(calc(var(--rotate) * 0.66)) translate(var(--end-x), var(--end-y)); opacity: 1; }
+  100% { transform: rotate(calc(var(--rotate) * 1.2)) translate(calc(var(--end-x) * 0.5), calc(var(--end-y) * 0.5)); opacity: 1; }
+}
+@keyframes gn-point {
+  0%   { transform: scale(0); opacity: 0; animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+  25%  { transform: scale(calc(var(--scale) * 0.25)); }
+  38%  { opacity: 1; }
+  65%  { transform: scale(var(--scale)); opacity: 1; animation-timing-function: ease; }
+  85%  { transform: scale(var(--scale)); opacity: 1; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+/* ───────────────────────────────────────────────────────────────
+ * DEMO SHELL — Prism de fundo (site inteiro) + vidro + menu lateral.
+ * Fundo animado fluido atrás de um véu com blur; cards viram vidro;
+ * elementos sem borda; 3 verdes predominantes.
+ * ─────────────────────────────────────────────────────────────── */
+
+.painel-shell {
+  min-height: 100vh;
+  transition: padding 0.3s ease;
+}
+.demo-shell {
+  min-height: 100vh;
+  background: var(--color-canvas);
+  transition: padding 0.3s ease;
+}
+/* Modo parede: reserva espaço lateral pro painel encostado (só em telas largas)
+ * e faz o conteúdo do módulo encostar no menu (sem centralizar/vão grande). */
+@media (min-width: 1024px) {
+  [data-menu="parede"][data-menuside="left"] :is(.demo-shell, .painel-shell) { padding-left: 15rem; }
+  [data-menu="parede"][data-menuside="right"] :is(.demo-shell, .painel-shell) { padding-right: 15rem; }
+  [data-menu="parede"] .demo-content {
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 1.75rem;
+    padding-right: 1.75rem;
+  }
+}
+
+/* Transição de tema suave e linear (claro ⇄ escuro) */
+.demo-shell,
+.demo-shell *:not(canvas) {
+  transition: background-color 0.4s linear, color 0.4s linear,
+    border-color 0.4s linear, fill 0.4s linear, stroke 0.4s linear,
+    box-shadow 0.4s linear;
+}
+
+/* Camada fixa do Prism cobrindo a viewport, atrás de tudo */
+.demo-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.demo-bg canvas { width: 100% !important; height: 100% !important; }
+
+/* Véu com blur: transforma o Prism num wash verde suave e legível */
+.demo-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgb(39 255 87 / 0.16), transparent 55%),
+    rgb(238 244 240 / 0.5);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+}
+
+/* ── Modo ESCURO (Prism aparece de verdade) ── */
+[data-theme="dark"] { color-scheme: dark; }
+[data-theme="dark"] .demo-shell {
+  background: var(--green-deep);
+  /* Inverte a tinta via tokens → todo text-ink-* fica branco fosco sem editar páginas */
+  --color-ink-900: #e8f1ea;
+  --color-ink-800: #d5e2d9;
+  --color-ink-700: #c2d3c8;
+  --color-ink-600: #aabdb0;
+  --color-ink-500: #93a89b;
+  --color-ink-400: #72857a;
+  /* Destaque verde vivo sobre o verde escuro */
+  --hi: #3ef06f;
+}
+[data-theme="dark"] .demo-veil {
+  background:
+    radial-gradient(120% 90% at 85% 0%, rgb(39 255 87 / 0.18), transparent 55%),
+    rgb(8 20 13 / 0.5);
+}
+[data-theme="dark"] .demo-shell .bg-surface {
+  background-color: rgb(20 51 31 / 0.5) !important;
+}
+
+/* Todo elemento de superfície da demo vira VIDRO (blur, sem cor sólida) */
+.demo-shell .bg-surface {
+  background-color: rgb(255 255 255 / 0.55) !important;
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+/* ── Menu FLUTUANTE (vidro, recolhe pra um botão) ──
+ * Blur forte o bastante pra manter o texto nítido, mas sem cor sólida.
+ * O painel expandido e o botão recolhido compartilham o mesmo vidro. */
+.menu-vidro {
+  background: rgb(255 255 255 / 0.14);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+  box-shadow: 0 12px 40px -16px rgb(10 31 19 / 0.35);
+}
+[data-theme="dark"] .menu-vidro {
+  background: rgb(10 31 19 / 0.32);
+}
+
+/* Recolhe/expande de forma fluida */
+.menu-painel {
+  transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0.32s;
+}
+.menu-painel[data-open="false"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.menu-painel[data-side="left"][data-open="false"] { transform: translateX(-12px) scale(0.98); }
+.menu-painel[data-side="right"][data-open="false"] { transform: translateX(12px) scale(0.98); }
+.menu-painel[data-open="true"] { opacity: 1; transform: translateX(0) scale(1); }
+
+.menu-btn {
+  transition: opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.menu-btn[data-hidden="true"] {
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+}
+
+.menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-ink-700);
+}
+[data-tom="escuro"] .menu-item {
+  color: #cfe3d8;
+}
+[data-tom="escuro"] .menu-vidro,
+.menu-btn[data-tom="escuro"] {
+  background: rgb(10 31 19 / 0.55);
+}
+.menu-btn[data-tom="escuro"] {
+  color: #cfe3d8;
+}
+.menu-botaozinho {
+  color: var(--color-ink-500);
+}
+.menu-botaozinho:hover {
+  background: rgb(21 163 58 / 0.1);
+  color: var(--color-brand-700);
+}
+[data-tom="escuro"] .menu-botaozinho {
+  color: #9fbdad;
+}
+[data-tom="escuro"] .menu-botaozinho:hover {
+  color: #cfe3d8;
+}
+.menu-item:hover {
+  color: var(--hi);
+  background: rgb(21 163 58 / 0.1);
+  padding-left: 1.05rem;
+}
+.menu-item--ativo {
+  color: #fff;
+  background: linear-gradient(105deg, var(--green-core), var(--green-vivid));
+}
+.menu-item--ativo:hover {
+  color: #fff;
+  background: linear-gradient(105deg, var(--green-core), var(--green-vivid));
+  padding-left: 0.85rem;
+}
+.menu-item .menu-icone {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.menu-item:hover .menu-icone { transform: scale(1.12); }
+
+/* Respeita a preferência do sistema por menos movimento */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .hero-dark::before,
+  .hero-dark::after,
+  .ecg-path,
+  .float-soft,
+  .reveal-up {
+    animation: none !important;
+  }
+  .reveal-up { opacity: 1; transform: none; }
+}

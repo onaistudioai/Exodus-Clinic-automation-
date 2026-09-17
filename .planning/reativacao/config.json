@@ -1,0 +1,41 @@
+{
+  "project": "reativacao",
+  "module": "Reativação",
+  "app": "aios-painel",
+  "branch": "feat/reativacao",
+  "phase": "1-architectus-done",
+  "decisions": {
+    "D1_janela_dias": 30,
+    "D1_passos_offset_dias": [0, 7, 21],
+    "D2_optout_router_sofia": "v1.1",
+    "D2_optout_v1": "honra paciente_contato.revogado_em",
+    "D3_envio_default": "dry-run",
+    "D3_envio_live_flag": "REATIVACAO_LIVE=1",
+    "D4_superficie": "painel+n8n"
+  },
+  "stack": {
+    "framework": "next@16",
+    "db": "postgres-railway-18.4",
+    "rls": "FORCE + GUC app.clinica_id, role app_painel NOBYPASSRLS",
+    "worker": "n8n cron -> postgres -> WAHA sendText"
+  },
+  "infra": {
+    "railway_project": "cbc10543-01ae-4a8a-98eb-bb8cbad043c7",
+    "railway_service_aios_painel": "de635348-fc47-4840-82b9-a14e6b18ebc4",
+    "railway_env": "79e2d271-d896-414f-b9e0-ce67ec27decc",
+    "n8n_pg_cred": "GELoLIY0BHL4vZm8",
+    "waha_cred": "y0JFReJbnhPbMHIC",
+    "sql_runner": "node D:/projetos/Demo/sofia-demo/sql/_run-sql.mjs <alias|path>",
+    "deploy": "railway up de aios-painel/ (NUNCA mcp deploy com path=aios-painel/)"
+  },
+  "waves": {
+    "1": { "parts": ["P1-migracao-sql", "P2-tipos-rbac"], "parallel": true },
+    "2": { "parts": ["P3-dal", "P4-worker-n8n"], "parallel": true, "depends_on": ["1"] },
+    "3": { "parts": ["P5-actions", "P6-ui"], "parallel": false, "depends_on": ["2"] }
+  },
+  "gates": {
+    "build": ["tsc --noEmit", "eslint", "next build"],
+    "qa": "contract-test BEGIN..ROLLBACK + seed Bella",
+    "deploy_prod": "requer aprovação explícita do user"
+  }
+}

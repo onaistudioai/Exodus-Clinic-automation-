@@ -1,0 +1,6 @@
+{
+  "wave": 2,
+  "part_3_dal_nucleo": { "status": "done", "outputs": ["src/server/estoque.repo.ts"] },
+  "part_4_dal_baixa_bom": { "status": "done", "outputs": ["src/server/estoque.repo.ts"] },
+  "gate_w2": { "tsc": "green", "db_validated": false, "note": "validação no banco junto da migration (deferida)" }
+}

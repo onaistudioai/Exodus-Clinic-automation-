@@ -1,0 +1,10 @@
+{
+  "wave": 3,
+  "part_5_actions": { "status": "done", "outputs": ["src/app/(painel)/estoque/actions.ts"] },
+  "part_6_hook_prontuario": {
+    "status": "done",
+    "outputs": ["src/app/(painel)/prontuario/[pacienteId]/actions.ts"],
+    "note": "SAVEPOINT isola baixa (C3/C4); só em entrada nova (não correção)"
+  },
+  "gate_w3": { "tsc": "green" }
+}

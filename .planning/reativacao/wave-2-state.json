@@ -1,0 +1,21 @@
+{
+  "wave": 2,
+  "depends_on": [1],
+  "P3-dal": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": ["aios-painel/src/server/reativacao.repo.ts"],
+    "validated": "tsc --noEmit = 0 erros",
+    "note": "contract-test runtime pendente da aplicação da migração em prod",
+    "timestamp": "2026-06-22"
+  },
+  "P4-worker-n8n": {
+    "status": "done",
+    "agent": "conductor-inline",
+    "outputs": ["sofia-demo/n8n/_deploy-reativacao.mjs"],
+    "validated": "padrão herdado do _deploy-estoque-alerta.mjs (idempotente GET-then-PUT)",
+    "modes": "dry-run default (set-based, sem WhatsApp) | --live (per-item WAHA, cap 50)",
+    "note": "deploy no n8n pendente de aprovação; live gateado por --live",
+    "timestamp": "2026-06-22"
+  }
+}
