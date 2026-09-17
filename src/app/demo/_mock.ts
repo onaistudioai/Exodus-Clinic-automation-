@@ -4,7 +4,7 @@
  * Nomes/valores são inventados. Não usar em produção.
  */
 
-export const CLINICA = { nome: "Clínica Bella Odonto & Estética", cidade: "Florianópolis · SC" };
+export const CLINICA = { nome: "Clínica Aurora Odonto & Estética", cidade: "Florianópolis · SC" };
 
 export type Estagio = "inadimplente" | "inativo" | "em_tratamento" | "novo" | "ativo";
 

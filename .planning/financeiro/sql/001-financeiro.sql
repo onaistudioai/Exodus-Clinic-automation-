@@ -141,7 +141,7 @@ COMMIT;
 
 -- ===========================================================================
 -- VERIFICAÇÃO (rodar separado, com SET app.clinica_id):
---   SET app.clinica_id = '2';   -- Bella
+--   SET app.clinica_id = '2';   -- Aurora
 --   SELECT count(*) FROM financeiro_cobrancas;             -- só da clínica setada
 --   RESET app.clinica_id; SELECT count(*) FROM financeiro_cobrancas;  -- 0 (fail-closed)
 -- ===========================================================================

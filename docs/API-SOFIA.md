@@ -122,5 +122,5 @@ Aceita `chat_id` como alternativa ao telefone.
 - [ ] **GET do workflow em produção antes de qualquer PUT** — os JSON locais estão defasados
 - [ ] Trocar os nós Postgres por Code (assinatura) + HTTP Request, um workflow por vez
 - [ ] E2E de WhatsApp real entre cada workflow
-- [ ] Fechar o webhook de entrada (hoje `authentication: none`)
+- [ ] Conferir a autenticação do webhook de entrada no n8n antes de virar a chave
 - [ ] Só então: descomentar o `REVOKE` final em `.planning/seguranca/001-lockdown.sql`

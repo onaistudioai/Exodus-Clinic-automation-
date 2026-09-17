@@ -1,4 +1,4 @@
--- inspect-bella.sql — valores reais p/ guiar a camada C (clínica Bella = 2).
+-- inspect-clinica.sql — valores reais p/ guiar a camada C (clínica Aurora = 2).
 SELECT
   (SELECT json_agg(json_build_object('id', id, 'nome', nome, 'email', email,
                                      'ativo', ativo, 'tem_senha', senha_hash IS NOT NULL))

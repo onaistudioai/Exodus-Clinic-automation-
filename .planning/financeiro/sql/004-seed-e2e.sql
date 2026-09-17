@@ -1,5 +1,5 @@
 -- ============================================================================
--- 004-seed-e2e.sql — Seed de preços (Bella id 2) + E2E do ciclo financeiro.
+-- 004-seed-e2e.sql — Seed de preços (Aurora id 2) + E2E do ciclo financeiro.
 -- PARTE 1: cadastra a tabela de preços (PERSISTENTE — fica p/ uso no app).
 -- PARTE 2: E2E em BEGIN..ROLLBACK (nada do teste persiste; caixa é append-only).
 --   Cada passo asserta com RAISE EXCEPTION. Se o batch der erro = E2E falhou.
@@ -20,7 +20,7 @@ DO UPDATE SET valor = EXCLUDED.valor, ativo = true, atualizado_em = NOW();
 BEGIN;
 DO $$
 DECLARE
-  v_pac CONSTANT INT := 7;          -- paciente real da Bella
+  v_pac CONSTANT INT := 7;          -- paciente real da Aurora
   v_preco NUMERIC; v_cob INT;
   base_receber NUMERIC; base_caixa NUMERIC; base_fat NUMERIC; base_inad NUMERIC;
   d NUMERIC; v_err BOOLEAN;

@@ -69,7 +69,7 @@ não um disparador de massa cego. Atribuição real, anti-spam e anti-duplicata.
 - **DAL:** `src/server/reativacao.repo.ts` + `withTenant`/`withTenantReadOnly` (padrão Estoque).
 - **RBAC:** `src/lib/rbac.ts` — nova ação `gerir_reativacao` (admin + recepção).
 - **Worker:** workflow **n8n** (cron → Postgres → WAHA), padrão M3/M4. WAHA sessão `default`.
-  Credenciais: Postgres n8n `GELoLIY0BHL4vZm8`, WAHA `y0JFReJbnhPbMHIC`.
+  Credenciais do n8n e do WAHA: identificadores no cofre local, fora do repositório.
 - **Opt-out:** ajuste no router SOFIA (`SMe2MU21YGUbEknF`) — detectar palavra-chave.
 - **Migração:** runner `sofia-demo/sql/_run-sql.mjs` (banco só via n8n, sem proxy público).
 - **Deploy:** `railway up` (CLI) de `aios-painel/` OU MCP da raiz `D:/projetos/Demo` —
@@ -77,7 +77,7 @@ não um disparador de massa cego. Atribuição real, anti-spam e anti-duplicata.
 
 ## 5. Constraints
 
-- **Sem banco de staging** — migração validada por contract-test (BEGIN..ROLLBACK) + seed Bella.
+- **Sem banco de staging** — migração validada por contract-test (BEGIN..ROLLBACK) + seed Aurora.
 - **LGPD/consentimento** — só envia com vínculo de contato ativo e não revogado; opt-out honrado;
   livro-razão de envios é append-only e auditável.
 - **Anti-spam / reputação WhatsApp** — rate limit, janela de silêncio, sem reenvio do mesmo passo,
@@ -89,7 +89,7 @@ não um disparador de massa cego. Atribuição real, anti-spam e anti-duplicata.
 
 ## 6. Exemplos input/output
 
-**Detecção (entrada):** clínica Bella (id=2), JANELA_DIAS=30.
+**Detecção (entrada):** clínica Aurora (id=2), JANELA_DIAS=30.
 → **saída:** lista de `paciente_id` com `ultimo_atendimento`, `dias_inativo`, `chat_id` elegível.
 
 **Envio (worker):** alvo passo 0, template "Oi {nome}, sentimos sua falta na {clinica}…".

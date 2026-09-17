@@ -1,7 +1,7 @@
 -- ============================================================================
 -- 005-contract-test.sql — prova as GARANTIAS da Camada A. Cada falha = EXCEPTION.
 -- Não deixa lixo: tudo dentro de BEGIN ... ROLLBACK.
--- Pré-requisito: 001..004 aplicados. Clínica de teste = 2 (Bella).
+-- Pré-requisito: 001..004 aplicados. Clínica de teste = 2 (Aurora).
 -- Padrão herdado de estoque/003-contract-test.sql.
 -- ============================================================================
 BEGIN;

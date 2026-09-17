@@ -144,12 +144,12 @@ COMMIT;
 
 -- ===========================================================================
 -- VERIFICAÇÃO (rodar separado, com SET app.clinica_id):
---   SET app.clinica_id = '2';   -- Bella
+--   SET app.clinica_id = '2';   -- Aurora
 --   SELECT count(*) FROM produtos;            -- só da clínica setada
 --   RESET app.clinica_id; SELECT count(*) FROM produtos;  -- 0 (fail-closed)
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
--- SEED de teste (clínica Bella = 2) — idempotente. Remover/ajustar em prod.
+-- SEED de teste (clínica Aurora = 2) — idempotente. Remover/ajustar em prod.
 -- ---------------------------------------------------------------------------
 -- (rodar com SET app.clinica_id = '2' por causa do WITH CHECK da RLS)

@@ -44,7 +44,7 @@ Quando um produto sem nenhum lote sofre baixa, cria-se um lote `'DIVERGENCIA'`. 
 
 - **L1 — `if (delta === 0) return` em `ajustarInventario`** usa comparação exata de float; um delta ~1e-15 passaria. Usar epsilon (como o `> 0.0000001` da baixa).
 - **L2 — `listarAlertas` monta em JS** (níveis + lotes) em vez de UNION no SQL. Legível e O(2 queries); ok manter.
-- **L3 — Seed de teste vazio na migration.** Necessário popular para o E2E (Fase 4) — produto + lote + BOM na clínica Bella (2).
+- **L3 — Seed de teste vazio na migration.** Necessário popular para o E2E (Fase 4) — produto + lote + BOM na clínica Aurora (2).
 - **L4 — eslint do projeto quebrado** (eslintrc×flat, circular JSON na carga) — pré-existente, não checa nada. Fora do escopo deste módulo, mas vale abrir issue separada.
 
 ---

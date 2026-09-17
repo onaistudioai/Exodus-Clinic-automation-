@@ -1,7 +1,7 @@
 -- ============================================================================
 -- 002-contract-test.sql — Contrato Agenda+Turnos (QA / Fase 4 OPUS).
 -- Sentinela: termina com RAISE 'AGENDA_CONTRACT_PASS' (força rollback; nada persiste).
--- Qualquer FALHA dispara mensagem diferente. Roda como superuser; usa a clínica 2 (Bella).
+-- Qualquer FALHA dispara mensagem diferente. Roda como superuser; usa a clínica 2 (Aurora).
 -- ============================================================================
 DO $$
 DECLARE

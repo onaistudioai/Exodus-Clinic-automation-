@@ -1,4 +1,4 @@
--- failure-sim.sql — injeção de falhas nos módulos Estoque+Prontuário (Bella=2).
+-- failure-sim.sql — injeção de falhas nos módulos Estoque+Prontuário (Aurora=2).
 -- Coleta resultado de cada probe em _res e devolve; BEGIN..ROLLBACK (não persiste).
 BEGIN;
 SET LOCAL app.clinica_id = '2';

@@ -9,7 +9,7 @@ DO $$
 DECLARE
   v_contato INT; v_pac INT; v_camp INT; v_alvo INT;
   v_chat TEXT; v_n INT; v_erro BOOLEAN; v_mudou BOOLEAN;
-  k_clinica CONSTANT TEXT := '2';   -- Bella
+  k_clinica CONSTANT TEXT := '2';   -- Aurora
 BEGIN
   PERFORM set_config('app.clinica_id', k_clinica, true);
 

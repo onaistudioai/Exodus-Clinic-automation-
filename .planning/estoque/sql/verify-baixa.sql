@@ -1,4 +1,4 @@
--- verify-baixa.sql — confere a baixa do ÚLTIMO atendimento com saída de estoque (Bella).
+-- verify-baixa.sql — confere a baixa do ÚLTIMO atendimento com saída de estoque (Aurora).
 -- Esperado p/ um atendimento tipo 'procedimento' com o seed:
 --   luva 'consumo' -3 (custo 10) + -2 (custo 12), anestésico 'consumo' -2 (custo 5.5),
 --   gaze 'divergencia' -1 (custo 0). custo_total = 65.00.

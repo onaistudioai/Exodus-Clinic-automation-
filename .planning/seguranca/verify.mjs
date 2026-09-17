@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS clinicas (
 const passos = [
   // roles ANTES do schema: todo 001-*.sql de modulo termina com GRANT TO app_painel.
   ['.planning/seguranca/000-roles.sql', PAINEL],
-  // bella cria agendamentos_sofia_demo; f02 depois adiciona clinica_id nela.
+  // aurora cria agendamentos_sofia_demo; f02 depois adiciona clinica_id nela.
   // Ambos IF NOT EXISTS / IF NOT EXISTS-guarded; provados limpos (sem ⚠) nas
   // 4 rodadas de 2026-09-01 — não têm razão documentada para tolerância.
   ["sofia-demo/sql/schema-agendamentos-bella.sql", RAIZ],

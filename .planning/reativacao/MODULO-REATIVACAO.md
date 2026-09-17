@@ -27,7 +27,7 @@ para detectar inatividade **e** para medir conversão. Não é disparador de mas
 Painel /reativacao (RBAC ver/gerir_reativacao, RLS)
   └─ DAL reativacao.repo.ts (withTenant) ── Postgres (RLS FORCE)
         reativacao_campanhas | reativacao_alvos | reativacao_envios (append-only) | v_reativacao_inativos
-Worker n8n "SOFIA - Reativação Diária" (W7aIDiVkhYZIoQZa, cron 09h, DRY, INATIVO)
+Worker n8n "SOFIA - Reativação Diária" (cron 09h, DRY, INATIVO)
   └─ seleciona alvos vencidos → [dry: registra simulado | live: WAHA sendText] → avança passo
 ```
 
@@ -51,7 +51,7 @@ Worker n8n "SOFIA - Reativação Diária" (W7aIDiVkhYZIoQZa, cron 09h, DRY, INAT
 
 - **Aplicar migração:** `node sofia-demo/sql/_run-sql.mjs aios-painel/.planning/reativacao/sql/001-reativacao.sql`
 - **Contract-test:** `node sofia-demo/sql/_run-sql.mjs aios-painel/.planning/reativacao/sql/003-contract-test.sql` (BEGIN..ROLLBACK)
-- **Deploy painel:** `railway up` de `aios-painel/` (serviço de635348). NUNCA mcp deploy com path=aios-painel/.
+- **Deploy painel:** a partir da raiz de `aios-painel/` — nunca apontando o path do subdiretório.
 - **Deploy worker (dry/inativo):** `node sofia-demo/n8n/_deploy-reativacao.mjs`
   - `--activate` liga o cron · `--live` envia de verdade (cap 50). Trigger manual: `POST /webhook/reativacao-trigger`.
 - **Ligar envio real (quando aprovado):** `node sofia-demo/n8n/_deploy-reativacao.mjs --live --activate`.
@@ -67,4 +67,4 @@ app_painel sem DELETE no livro-razão.
 - Envio **live** ainda não exercitado (dry-run default; sem alvos reais ainda).
 - Opt-out via router SOFIA (palavra-chave "PARAR/SAIR").
 - Janela de silêncio (fim de semana/feriado), segmentação, A/B de template, digest de ROI ao gestor.
-- Identificadores: worker n8n `W7aIDiVkhYZIoQZa`; painel `https://aios-painel-production.up.railway.app/reativacao`.
+- Identificadores do worker n8n e a URL do painel ficam no cofre local, fora do repositório.

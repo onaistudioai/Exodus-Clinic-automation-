@@ -8,7 +8,7 @@ BEGIN;
 DO $$
 DECLARE
   v_id1 BIGINT; v_id2 BIGINT; v_id3 BIGINT; v_n INT; v_erro BOOLEAN;
-  k_clinica CONSTANT TEXT := '2';   -- Bella
+  k_clinica CONSTANT TEXT := '2';   -- Aurora
   k_chat    CONSTANT TEXT := '55TESTE777@c.us';
 BEGIN
   PERFORM set_config('app.clinica_id', k_clinica, true);

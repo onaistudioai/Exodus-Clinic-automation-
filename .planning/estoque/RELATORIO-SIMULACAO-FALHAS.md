@@ -1,7 +1,7 @@
 # Relatório de Simulação de Falhas — Estoque + Prontuário (aios-painel)
 
 > **Formato:** mesmo baseline de `sofia-demo/RELATORIO-REVISAO-FALHAS.md` — severidade 🔴/🟠/🟡/🔵, cada item com **O quê / Impacto / Como resolver / Prevenção**.
-> **Escopo:** módulos Estoque e Prontuário no painel em produção (`aios-painel-production.up.railway.app`) + Postgres Railway (clínica Bella=2).
+> **Escopo:** módulos Estoque e Prontuário no painel em produção (hospedagem da época) + Postgres (clínica Aurora=2).
 > **Data:** 2026-06-21 · **Método:** injeção de falhas via SQL (BEGIN..ROLLBACK, nada persistido) + probes HTTP no app no ar + análise estática do código.
 
 ## 1. Sumário executivo
@@ -103,7 +103,7 @@ Os módulos estão **sólidos no núcleo**: RBAC em toda action, RLS FORCE fail-
 | 9 | Healthcheck que valida dependências | 🔵 L3 | baixo | `/api/health` + `railway.json` | ✅ `/api/health` (200 up / 503 down) (`67004d6`/`ae794c5`, deployado) |
 | 10 | Proxy otimista (cookie) ≠ authz | 🔵 L4 | — | `proxy.ts` | ⛔ por design (authz no DAL/`requireAcao`) — sem mudança |
 
-> **Status (2026-06-21):** A1, M1, M2, M3, M4, M5 corrigidos e em produção. Migration `004-falhas-fixes.sql` aplicada no PG 18.4; painel redeployado e verificado (`/login`=200, rotas protegidas=307, 404 ok; reconciliação = 0 divergências — estoque Bella vazio pós-cleanup de QA). **M5**: workflow n8n "SOFIA - Alerta Estoque Diário" (`idD7vjFI3XEFq0z7`) ativo — cron `0 8 * * *` → Postgres (digest cross-tenant por superuser; só clínicas COM alertas, sem spam) → WAHA `sendText` p/ `clinicas.telefone_responsavel`. Trigger manual de teste: `POST /webhook/estoque-alerta-trigger` (exige sessão WAHA WORKING + dados de estoque).
+> **Status (2026-06-21):** A1, M1, M2, M3, M4, M5 corrigidos e em produção. Migration `004-falhas-fixes.sql` aplicada no PG 18.4; painel redeployado e verificado (`/login`=200, rotas protegidas=307, 404 ok; reconciliação = 0 divergências — estoque Aurora vazio pós-cleanup de QA). **M5**: workflow n8n "SOFIA - Alerta Estoque Diário" (`idD7vjFI3XEFq0z7`) ativo — cron `0 8 * * *` → Postgres (digest cross-tenant por superuser; só clínicas COM alertas, sem spam) → WAHA `sendText` p/ `clinicas.telefone_responsavel`. Trigger manual de teste: `POST /webhook/estoque-alerta-trigger` (exige sessão WAHA WORKING + dados de estoque).
 >
 > **Status (2026-06-22):** 🔵 **L1, L2, L3 corrigidos e em produção** (commits `67004d6` + `ae794c5`, deployment Railway `86d90025` = SUCCESS). L2: eslint voltou a rodar (FlatCompat→configs flat nativos do `eslint-config-next` 16) — gate **verde**; 3 achados que estavam escondidos foram corrigidos (setState-in-effect no ProntuarioPaciente, param morto em `agendamentos.repo`, `eslint-disable` órfão em `db.ts`). L1: `DB_POOL_MAX`. L3: `/api/health` valida o Postgres e é o healthcheckPath do Railway. **L4 fica por design** (proxy é check otimista; authz real no DAL). Verificado ao vivo pós-deploy: `/api/health`=200 `{status:ok,db:up}`, `/login`=200, `/estoque`=307. **Todas as falhas da simulação resolvidas (só L4 permanece, intencionalmente).**
 

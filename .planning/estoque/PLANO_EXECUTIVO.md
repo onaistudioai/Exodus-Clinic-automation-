@@ -24,7 +24,7 @@ Cada parte escreve testes básicos junto (regra OPUS Fase 2). Migrations rodam v
   - Trigger append-only em `movimentacoes_estoque` (bloqueia UPDATE/DELETE).
   - Grants `app_painel` (SELECT/INSERT/UPDATE; sem DELETE).
   - Índices: `lotes(produto_id, validade)` (FEFO), `movimentacoes(produto_id, criado_em)`, `produtos(clinica_id) WHERE ativo`.
-  - Seed mínimo de teste (clínica Bella=2) para E2E posterior.
+  - Seed mínimo de teste (clínica Aurora=2) para E2E posterior.
 - **Parte 2 — Tipos + RBAC** — Timeout: 10 min
   - `src/types/domain.ts`: `Produto`, `Lote`, `MovimentacaoEstoque`, `TipoMovimentacao`, `BomItem`, `AlertaEstoque`, `NivelProduto`.
   - `src/lib/rbac.ts`: ações `gerir_estoque`, `ver_estoque`, `configurar_bom` na matriz.

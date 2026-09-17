@@ -9,7 +9,7 @@ BEGIN;
 DO $$
 DECLARE
   v_pac INT; v_ent INT; v_cob INT; v_n INT; v_erro BOOLEAN;
-  k_clinica CONSTANT TEXT := '2';   -- Bella
+  k_clinica CONSTANT TEXT := '2';   -- Aurora
 BEGIN
   PERFORM set_config('app.clinica_id', k_clinica, true);
 

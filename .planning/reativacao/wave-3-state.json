@@ -26,6 +26,6 @@
   "fase8_deploy": {
     "migracao": "001-reativacao.sql aplicada em prod (success)",
     "painel": "railway up deployment 349bf00a = SUCCESS; /reativacao=307, /api/health=200, /login=200",
-    "worker": "n8n W7aIDiVkhYZIoQZa 'SOFIA - Reativação Diária' DRY + INATIVO"
+    "worker": "n8n 'SOFIA - Reativação Diária' DRY + INATIVO"
   }
 }

@@ -185,7 +185,7 @@ COMMIT;
 -- ===========================================================================
 -- VERIFICAÇÃO (rodar separado, com SET app.clinica_id):
 --   SET app.clinica_id='2';
---   SELECT count(*) FROM profissionais;                 -- da Bella
+--   SELECT count(*) FROM profissionais;                 -- da Aurora
 --   SELECT id, profissional_id, servico_id, inicio, fim FROM agendamentos_sofia_demo;
 --   RESET app.clinica_id; SELECT count(*) FROM turnos;  -- 0 (fail-closed sob app_painel)
 -- ===========================================================================

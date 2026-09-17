@@ -29,7 +29,7 @@ BEGIN
 
   -- ==========================================================================
   -- (2) O vocabulário legado não é mais aceito em lugar nenhum.
-  --     'pendente' era o DEFAULT do schema da Bella e o filtro dos 3 workflows.
+  --     'pendente' era o DEFAULT do schema da Aurora e o filtro dos 3 workflows.
   -- ==========================================================================
   IF EXISTS (SELECT 1 FROM estado_agendamento
               WHERE estado IN ('pendente','remarcacao_pendente')) THEN

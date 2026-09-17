@@ -7,7 +7,7 @@
 --   bot-agendamento/001:62          CHECK com 8 estados
 --   camada-a/002:28                 CHECK com 11 (redefine o mesmo constraint)
 --   camada-a/002:48                 fn_transicao_valida, 11 num CASE
---   sofia-demo/schema-...-bella:13  6 estados, VOCABULÁRIO INCOMPATÍVEL
+--   sofia-demo/schema-...-aurora:13  6 estados, VOCABULÁRIO INCOMPATÍVEL
 --
 -- O CHECK e a função pareciam camadas complementares (uma valida o valor, a
 -- outra o caminho). São cópias: as duas enumeram o conjunto. Daqui em diante o

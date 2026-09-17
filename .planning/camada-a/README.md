@@ -21,7 +21,7 @@ ordem, cada arquivo falha por dependência ausente.
 2. .planning/seguranca/000-roles.sql        (app_painel/app_n8n antes de qualquer GRANT)
 3. sofia-demo/sql/schema-agendamentos-bella.sql
 4. sofia-demo/sql/DRAFT-prontuario-modelo.sql   (usuarios, pacientes, contatos, vínculos)
-5. seed de clinicas (a de teste é id=2, Bella)
+5. seed de clinicas (a de teste é id=2, Aurora)
 6. .planning/agenda-turnos/sql/001-agenda-turnos.sql   (profissionais, servicos, clinicas.timezone)
 7. .planning/reativacao/sql/001-reativacao.sql
 8. .planning/reativacao/sql/004-consentimento.sql      (marketing_optin, livro-razão)

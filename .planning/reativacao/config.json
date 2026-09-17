@@ -19,14 +19,10 @@
     "rls": "FORCE + GUC app.clinica_id, role app_painel NOBYPASSRLS",
     "worker": "n8n cron -> postgres -> WAHA sendText"
   },
+  "_infra": "IDs de projeto, serviço e credencial (n8n, WAHA, hospedagem) NÃO moram aqui: este arquivo é versionado em repositório público. Ficam no cofre local, junto dos segredos.",
   "infra": {
-    "railway_project": "cbc10543-01ae-4a8a-98eb-bb8cbad043c7",
-    "railway_service_aios_painel": "de635348-fc47-4840-82b9-a14e6b18ebc4",
-    "railway_env": "79e2d271-d896-414f-b9e0-ce67ec27decc",
-    "n8n_pg_cred": "GELoLIY0BHL4vZm8",
-    "waha_cred": "y0JFReJbnhPbMHIC",
-    "sql_runner": "node D:/projetos/Demo/sofia-demo/sql/_run-sql.mjs <alias|path>",
-    "deploy": "railway up de aios-painel/ (NUNCA mcp deploy com path=aios-painel/)"
+    "sql_runner": "node sofia-demo/sql/_run-sql.mjs <alias|path> (no repositório Demo)",
+    "deploy": "a partir da raiz de aios-painel/ — nunca apontando o path do subdiretório"
   },
   "waves": {
     "1": { "parts": ["P1-migracao-sql", "P2-tipos-rbac"], "parallel": true },
@@ -35,7 +31,7 @@
   },
   "gates": {
     "build": ["tsc --noEmit", "eslint", "next build"],
-    "qa": "contract-test BEGIN..ROLLBACK + seed Bella",
+    "qa": "contract-test BEGIN..ROLLBACK + seed Aurora",
     "deploy_prod": "requer aprovação explícita do user"
   }
 }

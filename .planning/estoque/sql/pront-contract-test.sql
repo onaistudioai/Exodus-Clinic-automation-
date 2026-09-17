@@ -1,6 +1,6 @@
 -- pront-contract-test.sql — QA dedicada do PRONTUÁRIO (garantias do modelo).
 -- Auto-verificável (RAISE em falha) + BEGIN..ROLLBACK (não deixa lixo).
--- Clínica Bella = 2; usa paciente id=7, médico id=3, agendamento id=10 (existentes).
+-- Clínica Aurora = 2; usa paciente id=7, médico id=3, agendamento id=10 (existentes).
 -- RLS testada sob SET LOCAL ROLE app_painel (runner é superuser e bypassa RLS).
 BEGIN;
 SET LOCAL app.clinica_id = '2';
@@ -68,7 +68,7 @@ BEGIN
   -- ===== Fase B: RLS + grants sob role do app (app_painel) =====
   EXECUTE 'SET LOCAL ROLE app_painel';
 
-  -- (6) controle positivo: com GUC=2 o app_painel VÊ entradas da Bella (paciente 7 tem).
+  -- (6) controle positivo: com GUC=2 o app_painel VÊ entradas da Aurora (paciente 7 tem).
   PERFORM set_config('app.clinica_id', '2', true);
   SELECT count(*) INTO n FROM prontuario_entradas WHERE paciente_id = 7;
   IF n < 1 THEN RAISE EXCEPTION 'FALHA(6): com GUC=2 deveria ver entradas do paciente 7'; END IF;

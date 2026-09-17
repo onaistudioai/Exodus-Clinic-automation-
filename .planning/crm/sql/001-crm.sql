@@ -58,7 +58,7 @@ COMMIT;
 
 -- ===========================================================================
 -- VERIFICAÇÃO (rodar separado, com SET app.clinica_id):
---   SET app.clinica_id = '2';   -- Bella
+--   SET app.clinica_id = '2';   -- Aurora
 --   SELECT count(*) FROM crm_tarefas;                 -- só da clínica setada
 --   RESET app.clinica_id; SELECT count(*) FROM crm_tarefas;  -- 0 (fail-closed)
 -- ===========================================================================

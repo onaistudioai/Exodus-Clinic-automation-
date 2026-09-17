@@ -4,7 +4,7 @@
 -- NÃO a enxerga. Limpa no fim. Requer um paciente existente na clínica 2.
 -- ============================================================================
 
--- semear uma tarefa na Bella (clínica 2), anexada ao 1º paciente dela
+-- semear uma tarefa na Aurora (clínica 2), anexada ao 1º paciente dela
 SET app.clinica_id = '2';
 INSERT INTO crm_tarefas (clinica_id, paciente_id, titulo, descricao)
 SELECT 2, p.id, '[contract-test] ligar para o paciente', 'apagar depois'
@@ -16,7 +16,7 @@ SELECT 2, p.id, '[contract-test] ligar para o paciente', 'apagar depois'
 SELECT '2_ve_a_propria' AS caso, count(*) AS linhas
   FROM crm_tarefas WHERE titulo LIKE '[contract-test]%';   -- espera 1
 
--- clínica 1 não pode ver a tarefa da Bella
+-- clínica 1 não pode ver a tarefa da Aurora
 SET app.clinica_id = '1';
 SELECT '1_nao_ve_da_2' AS caso, count(*) AS linhas
   FROM crm_tarefas WHERE titulo LIKE '[contract-test]%';   -- espera 0

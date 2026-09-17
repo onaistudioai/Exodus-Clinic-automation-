@@ -176,6 +176,6 @@ COMMIT;
 -- ===========================================================================
 -- VERIFICAÇÃO (rodar com SET app.clinica_id):
 --   SET app.clinica_id = '2';
---   SELECT count(*) FROM v_reativacao_inativos;     -- elegíveis da Bella
+--   SELECT count(*) FROM v_reativacao_inativos;     -- elegíveis da Aurora
 --   RESET app.clinica_id; SELECT count(*) FROM reativacao_alvos;  -- 0 (fail-closed)
 -- ===========================================================================

@@ -1,7 +1,7 @@
 -- 003-contract-test.sql — testa as GARANTIAS do modelo de dados do estoque.
 -- Auto-verificável: cada falha dá RAISE EXCEPTION (o runner mostra como erro).
 -- Não deixa lixo: tudo dentro de BEGIN ... ROLLBACK.
--- Pré-requisito: rodar seed-teste.sql antes (clínica Bella = 2).
+-- Pré-requisito: rodar seed-teste.sql antes (clínica Aurora = 2).
 --
 -- ⚠️ O runner conecta como SUPERUSER (bypassa RLS). Por isso as checagens de RLS
 --    rodam sob `SET LOCAL ROLE app_painel` (NOBYPASSRLS), que é o role do app real —

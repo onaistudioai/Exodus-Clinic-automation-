@@ -72,7 +72,7 @@ sofia-demo/n8n/
 ## Gates (OPUS)
 - F2→F3: `tsc` + `eslint` + `next build` verdes; migração aplica em prod (contract-test BEGIN..ROLLBACK).
 - F3 (REVIEWER): zero HIGH. F4 (QA): contract-test (RLS fail-closed/isolamento, append-only, UNIQUE
-  alvo ativo, atribuição, opt-out honrado) + seed Bella. F5 (FIXER) se necessário. F6 docs.
+  alvo ativo, atribuição, opt-out honrado) + seed Aurora. F5 (FIXER) se necessário. F6 docs.
 - Deploy prod (railway up) só com aprovação explícita do user.
 
 ## Nota de execução

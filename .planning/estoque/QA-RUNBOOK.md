@@ -2,7 +2,7 @@
 
 > Sem framework de teste no `aios-painel` e com banco **só em produção** (sem staging),
 > a QA é feita em 3 camadas. As camadas A/B rodam via o runner SQL; a C é manual ao vivo
-> (exercita o código TS real da baixa). Tudo na clínica **Bella = 2**.
+> (exercita o código TS real da baixa). Tudo na clínica **Aurora = 2**.
 
 ## Pré-requisitos
 
@@ -38,8 +38,8 @@ isolamento entre clínicas, invariante de reconciliação.
 
 Exercita `estoque.baixarPorAtendimento` via o fluxo real do prontuário. Roda no painel.
 
-1. Login como **médico** da clínica Bella (RBAC `criar_entrada_prontuario`).
-2. Abrir um paciente da Bella **com um agendamento** vinculado.
+1. Login como **médico** da clínica Aurora (RBAC `criar_entrada_prontuario`).
+2. Abrir um paciente da Aurora **com um agendamento** vinculado.
 3. Registrar atendimento **tipo `procedimento`** (texto clínico qualquer) e finalizar.
 4. **Verificar** (via runner, `SET app.clinica_id='2'`):
    - `SELECT * FROM movimentacoes_estoque WHERE entrada_prontuario_id = <id> ORDER BY id;`

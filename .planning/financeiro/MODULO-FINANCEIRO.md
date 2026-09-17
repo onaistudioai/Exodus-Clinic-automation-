@@ -55,5 +55,5 @@ recibo PDF + CSV na v1 (NFS-e/OFX → v2) · LGPD: recibo/cobrança sem dado cl�
 
 - [ ] **Deploy do app**: `railway up` de `aios-painel/` (schema já está em prod).
 - [ ] **E2E manual**: cadastrar preço → finalizar atendimento de teste → pagar → conferir
-      recibo + caixa, na clínica Bella (id 2).
+      recibo + caixa, na clínica Aurora (id 2).
 - [ ] v1.1: Pix-API (Asaas), lembrete de inadimplência (worker n8n dry-run), vencimento configurável.

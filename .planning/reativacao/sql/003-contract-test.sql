@@ -10,7 +10,7 @@ BEGIN;
 DO $$
 DECLARE
   v_camp INT; v_alvo INT; v_n INT; v_erro BOOLEAN;
-  k_clinica CONSTANT TEXT := '2';   -- Bella
+  k_clinica CONSTANT TEXT := '2';   -- Aurora
 BEGIN
   -- contexto tenant
   PERFORM set_config('app.clinica_id', k_clinica, true);

@@ -15,7 +15,7 @@ demo `aios-clinicas`. Contrato de schema: `sofia-demo/sql/DRAFT-*`.
 | B5 UI Check-in | ✅ busca-antes-de-criar + desambiguação + criar-novo + fechar-check-in (carimbo) + **merge** (fora do balcão, dupla confirmação) — todos com E2E live |
 | **Wave 2 — Prontuário** | ✅ busca (médico/admin) + `/prontuario/[id]` (histórico c/ texto clínico, registrar atendimento, correção append-only, auditoria) — E2E live |
 | **Governança** | ✅ `/pacientes/[id]` (recepção: ficha + etiquetas, SEM texto clínico) + `/admin/auditoria` (admin: trilha prontuario_acessos) — E2E live + RBAC negativo |
-| **Deploy** | 🔴 **fora do ar desde 2026-07-27.** O serviço `aios-painel` (id de635348) vivia na Railway, cuja assinatura foi cancelada; a URL `aios-painel-production.up.railway.app` está morta. Destino registrado: Vercel (`docs/DEPLOY.md` §2) |
+| **Deploy** | 🔴 **fora do ar desde 2026-07-27.** O serviço do painel vivia numa hospedagem cuja assinatura foi cancelada, e a URL de então está morta. Destino registrado: Vercel (`docs/DEPLOY.md` §2) |
 
 ## Governança — etiquetas (recepção) + auditoria (admin) (feito 2026-06-16)
 Fecha o ciclo do prontuário com as duas views read-only que faltavam.
@@ -47,7 +47,7 @@ Fluxo [ATENDIMENTO] da ARCHITECTURE §6. DAL já existia (`prontuario.repo.ts`);
   orientações + vínculo de agendamento) + "Corrigir (nova entrada)" em finalizadas. Bug
   corrigido: após sucesso `state.ok` ficava true e travava reabrir o form → fechar via
   `useEffect([state.ok, state.entradaId])`.
-- ✅ **E2E live (2026-06-16):** semeei médico (medico.teste@bella.local, id3) + agend.
+- ✅ **E2E live (2026-06-16):** semeei médico (medico.teste@aurora.local, id3) + agend.
   confirmada (id4, paciente 7). Playwright: login médico → nav mostra Prontuário e NÃO
   Check-in (RBAC) → busca "mar" → abre → registra atendimento (0→1, texto visível) →
   Corrigir → NOVA entrada (1→2). DB confirmou: entrada #2 `corrige_entrada_id=1`
@@ -105,7 +105,7 @@ buraco entre quem agendou (Sofia, por chat_id/telefone) e quem sentou na cadeira
 - `BuscaPaciente.tsx` — "Selecionar" (agora `type=button`) abre o fechamento; `CriarPaciente`
   ganhou `onCheckin` → botão "Iniciar check-in →" na tela de sucesso (criar→fechar sem re-buscar).
 - tsc + `next build`: verdes.
-- ✅ **E2E live (2026-06-16):** redeploy OK + semeei 1 agendamento `pendente` p/ Bella →
+- ✅ **E2E live (2026-06-16):** redeploy OK + semeei 1 agendamento `pendente` p/ Aurora →
   Playwright/Chrome: login → buscar "mar" → Selecionar → lista carregou o agendamento →
   "Confirmar identidade" → msg sucesso + badge "✓ identidade confirmada". DELETE de
   verificação confirmou no banco: `paciente_id=7`, `identidade_confirmada_por=2`,
@@ -121,20 +121,20 @@ buraco entre quem agendou (Sofia, por chat_id/telefone) e quem sentou na cadeira
 - `CriarPaciente.tsx` — date-picker (max=hoje) mostra idade ao vivo; revela bloco responsável se <18. Ligado no `BuscaPaciente` (botão pós-busca pré-preenche nome/CPF buscado).
 
 ## Deploy (live)
-- URL (morta desde 2026-07-27): ~~https://aios-painel-production.up.railway.app~~ — na época `/login` 200, `/` e `/checkin` → 307 /login.
+- URL (morta desde 2026-07-27) — na época `/login` 200, `/` e `/checkin` → 307 /login.
 - Conecta como `app_painel` via `DATABASE_URL`. As três vars (DATABASE_URL, AUTH_SECRET, CPF_PEPPER, cofre `exodus/painel.env` + `postgres.env`) precisam ser recriadas como environment variables da Vercel.
 - Container "Ready in 176ms", sem erro de conexão no boot.
 
 ## Prova de RLS end-to-end
 1. ✅ Usuário de teste semeado: `usuarios.id=2`, clinica_id=2, papel=recepcao,
-   email `teste.recepcao@bella.local`, senha `bella-teste-2026`
-   (via `sofia-demo/sql/_seed-usuario-teste-bella.sql`).
+   email `teste.recepcao@aurora.local`, senha `aurora-teste-2026`
+   (via `sofia-demo/sql/_seed-usuario-teste-aurora.sql`).
 2. ✅ Teste E2E no app deployado (2026-06-16, via Playwright/Chrome contra
-   https://aios-painel-production.up.railway.app): login real como
-   `teste.recepcao@bella.local` → sessão emitida (cookie `aios_painel_session`,
+   na URL de então): login real como
+   `teste.recepcao@aurora.local` → sessão emitida (cookie `aios_painel_session`,
    clinica_id=2). Check-in: busca "isca" (paciente-isca semeado na clínica 1) →
-   **0 resultados** ("Nenhum paciente encontrado") = Bella NÃO vê dado da clínica 1;
-   busca "mar" (paciente da Bella) → 1 resultado. RLS isola pela cadeia completa
+   **0 resultados** ("Nenhum paciente encontrado") = Aurora NÃO vê dado da clínica 1;
+   busca "mar" (paciente da Aurora) → 1 resultado. RLS isola pela cadeia completa
    real: bcrypt + `fn_login_lookup` → JWT clinica_id → `withTenant` → role
    `app_painel` (NOBYPASSRLS) → policy `rls_tenant`. Isca da clínica 1 removida pós-teste.
 

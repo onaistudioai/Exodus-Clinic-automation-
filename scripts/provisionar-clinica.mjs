@@ -3,7 +3,7 @@
  * Wave 2 do onboarding — provisiona uma clínica e o admin inicial dela.
  *
  * Substitui o INSERT manual que era o ÚNICO caminho até hoje
- * (sofia-demo/sql/_seed-usuario-teste-bella.sql, com hash bcrypt colado à mão
+ * (o seed de usuário de teste em sofia-demo/sql/, com hash bcrypt colado à mão
  * dentro do arquivo versionado).
  *
  * Roda como neondb_owner, de propósito: criar clínica é a única operação do
@@ -65,7 +65,7 @@ function validar(a) {
   const erros = [];
   if (!a.nome?.trim()) erros.push("--nome é obrigatório");
   if (!/^[a-z0-9][a-z0-9-]*$/.test(a.slug ?? ""))
-    erros.push("--slug deve ser minúsculo, sem espaço nem acento (ex: clinica-bella)");
+    erros.push("--slug deve ser minúsculo, sem espaço nem acento (ex: clinica-aurora)");
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a["admin-email"] ?? ""))
     erros.push("--admin-email inválido");
   if (!a["admin-nome"]?.trim()) erros.push("--admin-nome é obrigatório");

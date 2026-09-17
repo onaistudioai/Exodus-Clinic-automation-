@@ -1,7 +1,7 @@
 # Módulo Agenda + Turnos — AIOS.clinic (estado de entrega)
 
 > OPUS, 2026-06-23. v1 entregue: código + build verde + contract-test ao vivo 5/5 PASSED.
-> Schema em produção; turnos semeados na Bella; deploy via `railway up`.
+> Schema em produção; turnos semeados na Aurora; deploy via `railway up`.
 
 ## O que entrega (v1)
 

@@ -1,4 +1,4 @@
--- seed-teste.sql — dados de teste do Módulo Estoque (clínica Bella = 2). L3 do REVIEW.
+-- seed-teste.sql — dados de teste do Módulo Estoque (clínica Aurora = 2). L3 do REVIEW.
 -- Idempotente: remove o seed anterior (nome LIKE '[TESTE]%') e recria.
 -- Roda com app.clinica_id='2' por causa do WITH CHECK da RLS.
 -- ⚠️ Produtos de teste NÃO devem ter movimentações ao limpar; se o E2E já rodou,

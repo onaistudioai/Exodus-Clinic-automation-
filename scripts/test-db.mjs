@@ -60,7 +60,7 @@ const CLINICAS = `
 CREATE TABLE IF NOT EXISTS clinicas (
   id SERIAL PRIMARY KEY, nome TEXT NOT NULL, telefone TEXT, endereco TEXT,
   horario_func TEXT, convenios TEXT, criado_em TIMESTAMPTZ DEFAULT NOW());
-INSERT INTO clinicas (id, nome) VALUES (1,'Clinica 1'),(2,'Clinica Bella')
+INSERT INTO clinicas (id, nome) VALUES (1,'Clinica 1'),(2,'Clinica Aurora')
   ON CONFLICT (id) DO NOTHING;
 SELECT setval('clinicas_id_seq', GREATEST(10, (SELECT COALESCE(MAX(id), 0) FROM clinicas)), true);`;
 

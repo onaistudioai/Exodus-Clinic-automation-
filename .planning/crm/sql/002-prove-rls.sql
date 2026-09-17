@@ -3,15 +3,15 @@
 -- Espera-se: com GUC setado, vê só a clínica; sem GUC, 0 linhas (fail-closed).
 -- ============================================================================
 
--- clínica 2 (Bella) enxerga só o que é dela
+-- clínica 2 (Aurora) enxerga só o que é dela
 SET app.clinica_id = '2';
-SELECT 'com_guc_bella' AS caso, count(*) AS linhas FROM crm_tarefas;
+SELECT 'com_guc_aurora' AS caso, count(*) AS linhas FROM crm_tarefas;
 
 -- sem GUC => policy compara com NULL => 0 linhas (fail-closed)
 RESET app.clinica_id;
 SELECT 'sem_guc' AS caso, count(*) AS linhas FROM crm_tarefas;  -- espera 0
 
--- tentar gravar em outra clínica com o GUC da Bella deve falhar no WITH CHECK
+-- tentar gravar em outra clínica com o GUC da Aurora deve falhar no WITH CHECK
 SET app.clinica_id = '2';
 DO $$
 BEGIN
