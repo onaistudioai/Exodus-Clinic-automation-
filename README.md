@@ -144,8 +144,14 @@ src/app/api/sofia/    contrato HMAC para o n8n (ver "Estado atual")
 src/lib/              guardas: auth, session, rbac, tenant, dal, hmac, cpf
 src/server/*.repo.ts  acesso a dado: só SQL, um arquivo por domínio
 .planning/*/sql/      migrations, aplicadas por scripts/aplicar-prod.mjs
+docs/                 arquitetura, API da SOFIA, LGPD, notas de execução
 docs/uml/             diagramas (fontes .puml) + docs/imagens (geradas)
 ```
+
+Na raiz ficam só os arquivos que a ferramenta procura por caminho fixo:
+`package.json`, `package-lock.json`, `tsconfig.json`, `components.json`
+(shadcn), `vercel.json`, os `*.config.mjs`, `next.config.ts` e `proxy.ts`.
+Documentação nenhuma mora lá — vai toda para `docs/`.
 
 UI → Server Action → Repository → Postgres. A Action valida e autoriza; o
 Repository só fala SQL; não há SQL solto em componente.

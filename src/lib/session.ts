@@ -14,7 +14,7 @@ import { cookies } from "next/headers";
  * `auth` do next-auth assume middleware.ts), implementamos a sessão sobre `jose`
  * — a MESMA lib que o next-auth usa por baixo — seguindo o padrão DAL dos docs do
  * Next 16. Os claims são idênticos ao contrato, então trocar por next-auth depois
- * é local (este arquivo + auth.ts). Ver NOTES.md.
+ * é local (este arquivo + auth.ts). Ver docs/NOTES.md.
  */
 export type Papel = "recepcao" | "medico" | "admin";
 

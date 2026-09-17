@@ -18,3 +18,9 @@ next-env.d.ts
 # Arquivos de EXEMPLO devem ser versionados (nao contem segredo, so os nomes
 # das variaveis). Sem isto, um deploy novo sobe sem saber o que configurar.
 !.env*.example
+
+# Instrucoes de agente geradas pelo `next dev` na raiz. Nao versionamos: o
+# proprio dev server recria quando precisa, e versionar so traz o arquivo de
+# volta como diff sujo toda vez que alguem roda o dev.
+AGENTS.md
+CLAUDE.md

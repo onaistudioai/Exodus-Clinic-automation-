@@ -60,7 +60,7 @@ Fluxo [ATENDIMENTO] da ARCHITECTURE §6. DAL já existia (`prontuario.repo.ts`);
   autorização explícita p/ furar o append-only.
 
 ## WAVE 0 — Arquitetura (feito 2026-06-16)
-Ver `docs/ARCHITECTURE.md` + `PLANO_EXECUTIVO.md`. Camadas: UI → Action (autoriza+valida)
+Ver `ARCHITECTURE.md` (nesta pasta). Camadas: UI → Action (autoriza+valida)
 → Repository (`src/server/*.repo.ts`, recebe `tx`) → withTenant → Postgres (RLS).
 - `src/types/domain.ts` — tipos de domínio compartilhados.
 - `src/server/{pacientes,agendamentos,prontuario}.repo.ts` — DAL (pacientes+agend. usados; prontuário pronto p/ Wave 2).
