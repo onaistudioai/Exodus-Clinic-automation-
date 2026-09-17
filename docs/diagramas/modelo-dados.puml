@@ -1,0 +1,545 @@
+@startuml modelo-dados
+!theme plain
+title Modelo de dados — aios-painel (EXODUS / AIOS.clinic)
+skinparam linetype ortho
+
+' Gerado a partir das migrations reais em aios-painel/.planning/*/sql/*.sql
+' e sofia-demo/sql/*.sql (schema compartilhado com a automação SOFIA/n8n).
+' clinica_id em uma tabela = ela entra na RLS automática por tenant
+' (aios-painel/.planning/seguranca/001-lockdown.sql varre pg_catalog por essa coluna).
+
+' ===========================================================================
+' TENANT ROOT
+' ===========================================================================
+entity "clinicas" as clinicas {
+  * id : SERIAL <<PK>>
+  --
+  nome, telefone, endereco
+  horario_func, convenios
+}
+
+entity "clinica_canal" as clinica_canal {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  canal (whatsapp)
+  provedor (waha | meta)
+  identificador
+}
+clinicas ||--o{ clinica_canal
+
+' ===========================================================================
+' RBAC — dado de referência COMPARTILHADO (sem clinica_id, fora da RLS)
+' ===========================================================================
+entity "papel" as papel {
+  * chave : TEXT <<PK>>
+  --
+  rotulo, ordem
+}
+note right of papel
+  papel / acao / papel_acao NÃO têm
+  clinica_id — é catálogo global,
+  não dado de tenant.
+end note
+
+entity "acao" as acao {
+  * chave : TEXT <<PK>>
+  --
+  modulo, escrita, sensivel, descricao
+}
+
+entity "papel_acao" as papel_acao {
+  * papel_chave : FK
+  * acao_chave : FK
+}
+papel ||--o{ papel_acao
+acao  ||--o{ papel_acao
+
+entity "usuarios" as usuarios {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  nome, papel, ativo
+}
+clinicas ||--o{ usuarios
+
+entity "login_tentativas" as login_tentativas {
+  * id : BIGSERIAL <<PK>>
+  --
+  email, ip, sucesso
+}
+note right of login_tentativas
+  rate-limit de login/identidade,
+  sem clinica_id — não é dado de tenant.
+end note
+
+entity "identidade_tentativas" as identidade_tentativas {
+  * id : BIGSERIAL <<PK>>
+  --
+  telefone, sucesso
+}
+
+' ===========================================================================
+' APROVAÇÃO (ações sensíveis)
+' ===========================================================================
+entity "estado_solicitacao" as estado_solicitacao {
+  * chave : TEXT <<PK>>
+  --
+  rotulo, terminal
+}
+entity "transicao_solicitacao" as transicao_solicitacao {
+  * de, para : FK
+}
+estado_solicitacao ||--o{ transicao_solicitacao
+
+entity "solicitacao_aprovacao" as solicitacao_aprovacao {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # acao_chave : FK -> acao
+  # solicitante_id : FK -> usuarios
+  # decidido_por : FK -> usuarios
+  argumentos (JSONB), estado, expira_em
+}
+clinicas ||--o{ solicitacao_aprovacao
+acao ||--o{ solicitacao_aprovacao
+usuarios ||--o{ solicitacao_aprovacao
+estado_solicitacao ||--o{ solicitacao_aprovacao
+
+' ===========================================================================
+' IDENTIDADE / PACIENTES
+' ===========================================================================
+entity "pacientes" as pacientes {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  nome_completo, data_nascimento
+  cpf_hash, cpf_last4
+  status (ativo|arquivado|mesclado)
+  mesclado_para_id : FK -> pacientes
+}
+clinicas ||--o{ pacientes
+
+entity "contatos_whatsapp" as contatos_whatsapp {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  chat_id, telefone, status
+}
+clinicas ||--o{ contatos_whatsapp
+
+entity "paciente_contato" as paciente_contato {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK
+  # contato_id : FK -> contatos_whatsapp
+  titular, vinculo_status
+}
+pacientes ||--o{ paciente_contato
+contatos_whatsapp ||--o{ paciente_contato
+
+entity "paciente_responsavel" as paciente_responsavel {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK (dependente)
+  # responsavel_id : FK -> pacientes
+  relacao, recebe_mensagens
+}
+pacientes ||--o{ paciente_responsavel
+
+entity "solicitacao_paciente" as solicitacao_paciente {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # contato_id : FK -> contatos_whatsapp
+  # paciente_id : FK (nullable)
+  motivo, acao_pretendida, argumentos (JSONB)
+  # estado : FK -> estado_solicitacao
+}
+clinicas ||--o{ solicitacao_paciente
+contatos_whatsapp ||--o{ solicitacao_paciente
+pacientes ||--o{ solicitacao_paciente
+estado_solicitacao ||--o{ solicitacao_paciente
+
+' ===========================================================================
+' AGENDA / TURNOS
+' ===========================================================================
+entity "profissionais" as profissionais {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # usuario_id : FK (nullable)
+  nome, especialidade, ativo
+}
+clinicas ||--o{ profissionais
+usuarios ||--o{ profissionais
+
+entity "servicos" as servicos {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  nome, duracao_min, ativo
+}
+clinicas ||--o{ servicos
+
+entity "turnos" as turnos {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # profissional_id : FK
+  dia_semana, hora_inicio, hora_fim
+  vigencia_inicio, vigencia_fim
+}
+profissionais ||--o{ turnos
+
+entity "bloqueios" as bloqueios {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # profissional_id : FK (nullable = clínica toda)
+  inicio, fim, motivo
+}
+clinicas ||--o{ bloqueios
+profissionais |o--o{ bloqueios
+
+entity "estado_agendamento" as estado_agendamento {
+  * estado : TEXT <<PK>>
+  --
+  terminal
+}
+entity "transicao_agendamento" as transicao_agendamento {
+  * de, para : FK
+}
+estado_agendamento ||--o{ transicao_agendamento
+
+entity "agendamentos_sofia_demo" as agendamentos_sofia_demo {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # profissional_id : FK (nullable)
+  # servico_id : FK (nullable)
+  # paciente_id : FK (nullable)
+  # contato_id : FK (implícito via chat_id)
+  chat_id, telefone
+  data_agendamento, hora_agendamento
+  inicio, fim (TIMESTAMPTZ, backfill de data+hora)
+  status, identidade_confirmada_em
+}
+note right of agendamentos_sofia_demo
+  Tabela central: SOFIA (n8n) escreve
+  direto aqui via role app_n8n, sem
+  passar pelo contrato HMAC /api/sofia/*
+  do painel (achado em MAPA-OPERACAO.md).
+end note
+clinicas ||--o{ agendamentos_sofia_demo
+profissionais |o--o{ agendamentos_sofia_demo
+servicos |o--o{ agendamentos_sofia_demo
+pacientes |o--o{ agendamentos_sofia_demo
+
+entity "eventos_agendamento" as eventos_agendamento {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # agendamento_id : FK
+  tipo, origem, ator, ocorrido_em
+}
+agendamentos_sofia_demo ||--o{ eventos_agendamento
+
+' ===========================================================================
+' FILA REVERSA (lista de espera)
+' ===========================================================================
+entity "lista_espera" as lista_espera {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK
+  # servico_id : FK
+  # profissional_id : FK (nullable)
+  disponibilidade, ativo, expira_em
+}
+pacientes ||--o{ lista_espera
+servicos ||--o{ lista_espera
+
+entity "ofertas_vaga" as ofertas_vaga {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # agendamento_id : FK
+  # lista_espera_id : FK
+  enviada_em, expira_em, resposta
+}
+agendamentos_sofia_demo ||--o{ ofertas_vaga
+lista_espera ||--o{ ofertas_vaga
+
+' ===========================================================================
+' PRONTUÁRIO (LGPD)
+' ===========================================================================
+entity "prontuario_entradas" as prontuario_entradas {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK
+  # agendamento_id : FK (nullable)
+  # profissional_id : FK -> usuarios
+  estado (rascunho|finalizado)
+  texto_clinico, tipo_atendimento
+  precisa_retorno, retorno_em_dias
+  # corrige_entrada_id : FK -> prontuario_entradas
+}
+pacientes ||--o{ prontuario_entradas
+agendamentos_sofia_demo |o--o{ prontuario_entradas
+usuarios ||--o{ prontuario_entradas
+
+entity "prontuario_acessos" as prontuario_acessos {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # usuario_id : FK (nullable)
+  # paciente_id : FK (nullable)
+  # entrada_id : FK -> prontuario_entradas
+  acao (leu|criou|finalizou|corrigiu|expurgou)
+}
+prontuario_entradas ||--o{ prontuario_acessos
+
+' ===========================================================================
+' FINANCEIRO
+' ===========================================================================
+entity "financeiro_precos" as financeiro_precos {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  tipo_atendimento, valor, ativo
+}
+clinicas ||--o{ financeiro_precos
+
+entity "financeiro_cobrancas" as financeiro_cobrancas {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK
+  # entrada_prontuario_id : FK (nullable)
+  # agendamento_id : FK (nullable)
+  valor, vencimento, status
+  forma_pagamento, pago_em
+}
+pacientes ||--o{ financeiro_cobrancas
+prontuario_entradas |o--o{ financeiro_cobrancas
+agendamentos_sofia_demo |o--o{ financeiro_cobrancas
+
+entity "financeiro_lancamentos" as financeiro_lancamentos {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # cobranca_id : FK (nullable = avulso)
+  # usuario_id : FK
+  tipo (receita|despesa), valor, categoria
+}
+note right of financeiro_lancamentos
+  append-only: trigger bloqueia
+  UPDATE/DELETE — correção = estorno.
+end note
+financeiro_cobrancas |o--o{ financeiro_lancamentos
+usuarios ||--o{ financeiro_lancamentos
+
+' ===========================================================================
+' ESTOQUE
+' ===========================================================================
+entity "produtos" as produtos {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  nome, categoria, unidade
+  estoque_minimo, controlado, ativo
+}
+clinicas ||--o{ produtos
+
+entity "lotes" as lotes {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # produto_id : FK
+  codigo_lote, validade, quantidade
+  custo_unitario
+}
+produtos ||--o{ lotes
+
+entity "movimentacoes_estoque" as movimentacoes_estoque {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # produto_id : FK
+  # lote_id : FK (nullable)
+  # agendamento_id : FK (nullable)
+  # entrada_prontuario_id : FK (nullable)
+  # usuario_id : FK
+  tipo, motivo, quantidade (sinalizada)
+}
+note right of movimentacoes_estoque
+  Livro-razão append-only.
+  SUM(quantidade) == SUM(lotes.quantidade)
+end note
+lotes |o--o{ movimentacoes_estoque
+prontuario_entradas |o--o{ movimentacoes_estoque
+
+entity "procedimento_materiais" as procedimento_materiais {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # produto_id : FK
+  tipo_atendimento, quantidade
+}
+produtos ||--o{ procedimento_materiais
+
+' ===========================================================================
+' REATIVAÇÃO / LGPD (consentimento) / ESCALONAMENTO
+' ===========================================================================
+entity "reativacao_campanhas" as reativacao_campanhas {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  nome, janela_dias, passos (JSONB), ativa
+}
+clinicas ||--o{ reativacao_campanhas
+
+entity "reativacao_alvos" as reativacao_alvos {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # campanha_id : FK
+  # paciente_id : FK
+  # contato_id : FK (nullable)
+  passo_atual, status, proximo_envio
+}
+reativacao_campanhas ||--o{ reativacao_alvos
+pacientes ||--o{ reativacao_alvos
+
+entity "reativacao_envios" as reativacao_envios {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # alvo_id : FK
+  passo, modo (dry|live), wa_status
+}
+reativacao_alvos ||--o{ reativacao_envios
+
+entity "consentimento_eventos" as consentimento_eventos {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # contato_id : FK
+  tipo (optin|optout), origem, evidencia
+}
+note right of consentimento_eventos
+  append-only: prova de consentimento
+  LGPD não pode ser editável.
+end note
+contatos_whatsapp ||--o{ consentimento_eventos
+
+entity "escalonamentos" as escalonamentos {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # contato_id : FK (nullable)
+  chat_id, gatilho, trecho
+}
+clinicas ||--o{ escalonamentos
+contatos_whatsapp |o--o{ escalonamentos
+
+' ===========================================================================
+' CHAT / CONVERSAS / AUDITORIA
+' ===========================================================================
+entity "chat_chamadas" as chat_chamadas {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # usuario_id : FK (nullable)
+  ferramenta, acao, resultado
+}
+note right of chat_chamadas
+  append-only: trilha de auditoria
+  das ferramentas do chat do painel.
+end note
+clinicas ||--o{ chat_chamadas
+usuarios ||--o{ chat_chamadas
+
+entity "sofia_conversas" as sofia_conversas {
+  * id : BIGSERIAL <<PK>>
+  --
+  chat_id
+  # clinica_id : FK (nullable)
+  role (user|assistant), content
+}
+clinicas |o--o{ sofia_conversas
+
+entity "mensagens_bot" as mensagens_bot {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # contato_id : FK
+  # template_id : FK -> templates (nullable)
+  wa_message_id, direcao, conteudo
+  expurgado_em (retenção/pseudonimização)
+}
+contatos_whatsapp ||--o{ mensagens_bot
+
+entity "interacoes" as interacoes {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  contato_hash, intencao, modulo, desfecho
+}
+clinicas ||--o{ interacoes
+
+entity "templates" as templates {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  chave, versao, corpo, ativo
+}
+clinicas ||--o{ templates
+templates ||--o{ mensagens_bot
+
+entity "notificacoes_saida" as notificacoes_saida {
+  * id : SERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK
+  # contato_id : FK
+  # template_id : FK -> templates (nullable)
+  tipo, agendada_para, status
+}
+pacientes ||--o{ notificacoes_saida
+contatos_whatsapp ||--o{ notificacoes_saida
+templates |o--o{ notificacoes_saida
+
+' ===========================================================================
+' CRM
+' ===========================================================================
+entity "crm_tarefas" as crm_tarefas {
+  * id : BIGSERIAL <<PK>>
+  --
+  # clinica_id : FK
+  # paciente_id : FK
+  # criado_por : FK -> usuarios (nullable)
+  titulo, descricao, status, vencimento
+}
+pacientes ||--o{ crm_tarefas
+usuarios |o--o{ crm_tarefas
+
+' ===========================================================================
+' GOVERNANÇA DE JOBS (referência, sem clinica_id)
+' ===========================================================================
+entity "funcao_alcance" as funcao_alcance {
+  * funcao : TEXT <<PK>>
+  --
+  alcance (tenant|cross_tenant), motivo
+}
+note bottom of funcao_alcance
+  Fonte única do alcance das funções
+  de job/cron — cross_tenant é decisão
+  explícita, não default.
+end note
+
+@enduml
