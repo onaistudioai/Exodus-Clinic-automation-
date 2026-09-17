@@ -23,6 +23,30 @@ recepção porque o profissional não foi avisado.
 
 São problemas de **coordenação** — e é isso que o sistema faz.
 
+![Visão geral do painel](docs/imagens/painel-visao-geral.png)
+
+## As telas
+
+O CRM organiza o paciente por estágio de relacionamento, e a ficha 360 junta
+num lugar só o que hoje mora em quatro: agendamentos, cobranças, histórico
+clínico e o follow-up pendente.
+
+![CRM e ficha 360](docs/imagens/painel-crm.png)
+
+A agenda mostra o dia com gravidade e status de confirmação — é onde a
+confirmação D-1 e o lembrete D-0 da SOFIA aparecem como resultado.
+
+![Agenda do dia](docs/imagens/painel-agenda.png)
+
+O financeiro fecha o ciclo que começa na finalização do prontuário: o
+atendimento vira cobrança pelo preço vigente, e o pagamento vira lançamento no
+livro-razão.
+
+![Financeiro](docs/imagens/painel-financeiro.png)
+
+> As imagens são do ambiente de demonstração (`/demo`), com dados fictícios e
+> sem banco. Nenhum dado de paciente real aparece aqui.
+
 ## Como as peças se ligam
 
 ```mermaid
